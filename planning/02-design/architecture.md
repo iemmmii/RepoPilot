@@ -142,6 +142,10 @@ MVP 在可控测试仓库上验证这些边界；面向任意恶意代码的公�
 
 ## 未来源码边界（仅规划）
 
+当前 M1 按功能组织为 domain、github、repository、providers、workflow、storage、reporting、diagnostics；入口保留在根包。测试按 unit/功能 和 integration 分层。Provider 的协议、离线基线和 DeepSeek 实现分文件，不能全部堆在一个模块。
+
+下列是后续边界，未实现的 Worker、engine、sandbox 不预建空壳目录：
+
 ```text
 src/repopilot/
 ├── cli.py

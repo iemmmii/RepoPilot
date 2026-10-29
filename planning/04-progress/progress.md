@@ -5,7 +5,7 @@
 ## 当前状态
 
 阶段：M0 规划 v0.2，实施尚未开始。
-版本基线：初始规划已在远程 `main`；本轮修订使用 `docs/evidence-verification-roadmap` 分支，按 PR 流程提交。
+版本基线：初始规划已在远程 `main`；本轮 v0.2 位于 `docs/evidence-verification-roadmap` 分支，[PR #1](https://github.com/iemmmii/RepoPilot/pull/1) 已创建，尚未合并。
 实际实现：尚未开始；已建立规划文档及 README、Git 忽略规则、换行规范和 PR 模板等仓库元数据。
 下一项：P1-01 适配与环境小实验。
 当前没有正在后台运行的实现任务。
@@ -144,7 +144,9 @@
 - 已通过文档静态检查：19 个拟版本化文件、17 份 Markdown、61 个相对链接、1 个 JSON 示例。
 - 已核对 31 项任务与台账一致、原 21 个 ID 保留；6 个故障点、8 个威胁反例和 16 项决策定义齐全；文件为 UTF-8/LF，未提交原始聊天快照。
 - `git diff --check` 通过；本轮修改仅涉及根 README 和 planning/，未新增实现代码。
-- Git 交付使用独立分支与 PR，提交/PR 结果在完成后记录。
+- 设计修订已提交并推送：[`6217843`](https://github.com/iemmmii/RepoPilot/commit/6217843b0310d95a554afd2a95ed9f80ee96cc8c)，提交信息为 `docs(planning): define quality gates for verifiable repair`。
+- 已创建并关联 [PR #1](https://github.com/iemmmii/RepoPilot/pull/1)，目标 main，来源 docs/evidence-verification-roadmap；保留未合并状态以供比较和审阅。
+- GitHub 连接器缺少 PR 写权限，本次用本机已有 iemmmii 凭据完成 API 创建；凭据未写入文件或输出。此条进度记录另以 docs(progress) 提交到同一分支。
 - 本轮未执行 Agent、沙箱、模型或故障注入测试；文档一致性不能代表这些设计已验证。
 
 ### 下一步

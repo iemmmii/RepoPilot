@@ -69,6 +69,8 @@ def fetch_issue(url: str, client: httpx.Client | None = None) -> Issue:
         if len(response.content) > 1_000_000:
             raise RepoPilotError("issue_too_large", "GitHub Issue response exceeds the limit.")
         data = response.json()
+        if not isinstance(data, dict):
+            raise TypeError("Expected an Issue response object")
         if "pull_request" in data:
             raise RepoPilotError("not_an_issue", "The URL identifies a pull request, not an Issue.")
         if data.get("number") != number:

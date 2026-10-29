@@ -46,7 +46,12 @@ class RunStore:
         _atomic_write(self.root / "manifest.json", self.manifest.model_dump_json(indent=2).encode())
 
     def add(self, name: str, content: str | Record) -> None:
-        if Path(name).name != name or any(char in name for char in "/\\:") or name.startswith("."):
+        if (
+            Path(name).name != name
+            or any(char in name for char in "/\\:")
+            or name.startswith(".")
+            or name == "manifest.json"
+        ):
             raise RepoPilotError("invalid_artifact_path", "Artifact must have a simple filename.")
         if any(artifact.path == name for artifact in self.manifest.artifacts):
             raise RepoPilotError("artifact_exists", "Committed artifacts cannot be overwritten.")

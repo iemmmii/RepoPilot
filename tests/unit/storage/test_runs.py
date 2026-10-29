@@ -1,8 +1,11 @@
 import json
 
-from repopilot.domain.models import Issue
+import pytest
+
+from repopilot.domain.errors import RepoPilotError
+from repopilot.domain.models import Issue, Usage
 from repopilot.providers.lexical import LexicalProvider
-from repopilot.storage.runs import read_status
+from repopilot.storage.runs import RunStore, read_status
 from repopilot.workflow.investigation import investigate
 
 
@@ -33,3 +36,12 @@ def test_status_rejects_out_of_root_artifact(repository, tmp_path):
     saved["artifacts"][0]["path"] = "../outside.json"
     manifest.write_text(json.dumps(saved), encoding="utf-8")
     assert read_status(run)["artifact_integrity"] == "unverifiable"
+
+
+def test_artifact_cannot_overwrite_the_run_checkpoint(tmp_path):
+    store = RunStore(tmp_path / "runs", Usage(provider="test"))
+    original = (store.root / "manifest.json").read_bytes()
+    with pytest.raises(RepoPilotError) as caught:
+        store.add("manifest.json", "{}")
+    assert caught.value.code == "invalid_artifact_path"
+    assert (store.root / "manifest.json").read_bytes() == original

@@ -49,3 +49,10 @@ def test_malformed_and_oversized_urls_have_safe_errors(url):
     with pytest.raises(RepoPilotError) as caught:
         parse_issue_url(url)
     assert caught.value.code == "invalid_issue_url"
+
+
+def test_github_reader_rejects_non_object_json_without_traceback():
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=[]))
+    with httpx.Client(transport=transport) as client, pytest.raises(RepoPilotError) as caught:
+        fetch_issue("https://github.com/example/demo/issues/1", client)
+    assert caught.value.code == "invalid_github_response"

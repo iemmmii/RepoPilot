@@ -5,7 +5,7 @@
 ## 当前状态
 
 阶段：M1 只读调查已交付，容器前置仍待准备。
-版本基线：[规划 PR #1](https://github.com/iemmmii/RepoPilot/pull/1) 尚未合并；实现位于独立分支 `feat/m1-investigation-cli`，基于该规划分支。
+版本基线：[规划 PR #1](https://github.com/iemmmii/RepoPilot/pull/1) 尚未合并；实现已提交为 [PR #2](https://github.com/iemmmii/RepoPilot/pull/2)，独立分支 feat/m1-investigation-cli 暂以该规划分支为 base。
 实际实现：DeepSeek/离线调查 CLI、固定 Git 快照、静态检索、引用校验、Run/报告保存与完整性查询；代码按 8 个功能子包组织。
 下一项：完成 P1-01 的容器前置，再进入 P2-01 的隔离执行；不以宿主执行代替。
 当前没有正在后台运行的实现任务。
@@ -32,7 +32,7 @@
 | P1-03 | 已完成 | GitHub Issue URL/本地 JSON、输入与 HTTP 错误分类；真实读取成功 |
 | P1-04 | 已完成 | 固定 Git commit、受限文本/AST、路径和行号校验；不导入目标代码 |
 | P1-05 | 已完成 | 有文件依据的调查报告，假设和未执行命令单列；真实模型已定位关键代码 |
-| P1-06 | 已完成 | doctor/investigate/status、原子 manifest、失败保存、27 项测试及真实 DeepSeek 样例 |
+| P1-06 | 已完成 | doctor/investigate/status、原子 manifest、失败保存、29 项测试及真实 DeepSeek 样例 |
 | P2-01 | 未开始 | — |
 | P2-02 | 未开始 | — |
 | P2-03 | 未开始 | — |
@@ -167,9 +167,12 @@
 
 ### 产物与验证
 
-详见[M1 交付记录](m1-investigation.md)。27 项测试、ruff 检查及格式检查通过，最新真实报告的 4 个 Artifact 完整性为 valid。单元测试不访问网络，真实调用单列记录。
+详见[M1 交付记录](m1-investigation.md)。29 项测试、ruff 检查及格式检查通过，最新真实报告的 4 个 Artifact 完整性为 valid。单元测试不访问网络，真实调用单列记录。
 
-CI 定义已加入；包构建、提交范围检查和远程 CI 结果在本轮交付前补记。原始 Run、目标仓库缓存、虚拟环境和 .env 全部在忽略范围。
+- uv.lock 检查、wheel/sdist 构建及包内容审查通过；8 个功能子包完整，分发包排除私有文件。
+- 暂存范围检查通过：55 个版本化文件、65 个相对链接，实际本地密钥未出现在暂存文件中；原始 Run、目标仓库、虚拟环境和 .env 保持忽略。
+- 初始功能提交 [`0abf5f5`](https://github.com/iemmmii/RepoPilot/commit/0abf5f5060058a3094c76f7569dc63546c11a5ef) 已推送；[PR #2](https://github.com/iemmmii/RepoPilot/pull/2) 依赖规划 PR #1，二者未合并。
+- 初始功能提交的四组远程 CI 均通过；最终错误边界补测后共 29 项。当前提交的权威运行状态见 [PR #2 检查](https://github.com/iemmmii/RepoPilot/pull/2/checks)。
 
 ### 下一步
 

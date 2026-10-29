@@ -1,0 +1,8 @@
+{
+  "title": "TimedSerializer accepts timestamps from the future",
+  "body": "Investigate whether a TimestampSigner token dated later than the verification clock is accepted when max_age is supplied. The report describes a historical compatibility problem: timestamps created by a newer release could be interpreted as far-future values by an older verifier, potentially accepting a message outside the intended validity window. Locate timestamp conversion and signature age checks. Exact clock-skew tolerance requires an independently agreed Oracle before changing behavior.",
+  "url": "https://github.com/pallets/itsdangerous/issues/126",
+  "repository": "pallets/itsdangerous",
+  "number": 126,
+  "body_kind": "curated_summary"
+}

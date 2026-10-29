@@ -5,6 +5,7 @@
 ## 当前状态
 
 阶段：M0 规划完成。
+版本基线：规划已上传到远程 `main`，实施尚未开始。
 实际实现：尚未开始；已建立规划文档及 README、Git 忽略规则、换行规范和 PR 模板等仓库元数据。
 下一项：P1-01 适配与环境小实验。
 当前没有正在后台运行的实现任务。
@@ -105,7 +106,9 @@
 - `origin` 保留用户指定的 SSH 地址，仅为本仓库配置到同一仓库 HTTPS URL 的精确转写；不变更全局 Git/SSH 配置，不输出令牌。
 - 已检查 15 个待提交文件、29 个公开文档相对链接、21 项实施任务；凭据模式扫描、LF/代码块及忽略规则检查通过。
 - `git diff --cached --check` 通过。Agent 功能测试未运行，本轮未新增实现代码。
-- 上传提交与远程核验结果在完成后补记。
+- 规划基线已提交并推送到 `origin/main`：[`97f34ae`](https://github.com/iemmmii/RepoPilot/commit/97f34aef8eed48073f0525f115010df5f7543ccf)，提交信息为 `docs(planning): establish RepoPilot planning baseline`。
+- 通过 GitHub 接口独立核对远程文件清单：15 个版本化文件齐全，原始对话快照未上传；首次推送后本地工作区干净、main 已跟踪 origin/main。
+- 本条发布结果在随后 `docs(progress)` 提交中补记，作为同次仓库初始化的收尾；后续实质变更按分支与 PR 流程处理。
 
 ### 决策与下一步
 

@@ -1,6 +1,6 @@
 # 阶段产物与证据契约
 
-状态：数据设计草案 v0.1；字段在实现时形成正式 Schema。下文示例是设计数据，没有实际运行结果。
+状态：数据设计草案 v0.2；字段在实现时形成正式 Schema。下文示例是设计数据，没有实际运行结果。
 
 ## 一次运行的产物布局
 
@@ -12,6 +12,9 @@
 └── runs/<run_id>/
     ├── manifest.json                     # 最后可靠检查点与阶段引用
     ├── events.jsonl                      # 生命周期事件
+    ├── graph/revision-001.json            # 不可覆盖的类型化依赖图修订
+    ├── oracles/revision-001.json          # 需求依据与冻结断言审定
+    ├── assessments/revision-001.json      # 绑定输入与策略的 Gate 判定
     └── stages/
         ├── ingest/attempt-001/issue.json
         ├── analyze/attempt-001/repo_context.json
@@ -42,10 +45,27 @@
 | TestResult | `command_evidence_id, suite_hash, selected_nodeids, collected, passed, failed, skipped, xfailed, status` | 测试选择、测试内容和代码版本都绑定 |
 | Reproduction | `status, expected_behavior, observed_behavior, criterion_ids, failure_evidence_ids, repro_suite_hash` | `reproduced` 必须关联目标断言失败 |
 | Review | `snapshot_id, diff_hash, findings, criterion_assessments, verdict` | 每项发现有路径/依据；更换候选后审查失效 |
+| Oracle | `oracle_id, criterion_revision, source_kind, source_ref, assertion_mapping, suite_hash, assessment_status, assessed_by` | 冻结和独立审定是两件事；审定者及依据可追溯 |
+| Claim | `claim_id, criterion_revision, target_snapshot, environment_id, required_dependency_ids, scope` | 限定明确行为和验证范围；支持集合不能由模型随意删减 |
+| ClaimAssessment | `assessment_id, claim_id, input_fingerprint, policy_version, applicability, verdict, reasons, assessed_at` | 从固定规则和已登记证据得出；旧判定不可覆盖 |
 
 `snapshot_id` 包含 base commit 与候选源码摘要；单写 HEAD 不足以表示未提交修改。`suite_hash` 表示冻结验证套件内容。时间保存 UTC 标准时间，界面可按 Asia/Shanghai 显示。
 
 命令返回码必须取自执行进程；模型只能引用已存在的 `evidence_id`。Provider 用量缺失、未获得的字段使用 `null` 和原因，不补造数值。
+
+图边、输入指纹和失效规则的唯一详细定义见[证据图](evidence-graph.md)；Artifact 摘要核对内容一致性，不单独证明来源可信或行为正确。
+
+## 三个独立问题
+
+| 问题 | 所需依据 | 单独不足以证明什么 |
+| --- | --- | --- |
+| 行为断言是否代表需求 | 明确协议、维护者/人工确认、与需求核对的既有测试或独立验收 | 仅因测试冻结，就认定它正确 |
+| 命令是否在指定条件下执行 | 可信 Runner、源码/环境/套件指纹和实际进程记录 | 命令返回 0 就证明业务正确 |
+| 候选是否满足需求 | 足够的 Oracle、前后对照、回归与所需语义判断 | 仅因模型自写测试在 base 失败、候选通过就认定修复正确 |
+
+Oracle 审定状态为 `provisional / accepted / rejected`。accepted 必须有独立来源或对明确机器可判定协议的校验记录；另一个模型同意但没有外部依据时仍保留 provisional。可采用已核对需求的上游测试、维护者断言或控制面的受控评估 Oracle，不要求所有普通任务都经过人工批准。
+
+Coding Worker 可见必要的需求和公开复现测试；独立保留的验收断言不进入其上下文或可写文件系统。它们在独立干净 judge 中运行；该边界的对抗限制见[威胁模型](threat-model.md)。
 
 ## 验收项与覆盖关系
 
@@ -55,7 +75,7 @@
 - `origin`：Issue 明示 / 用户补充 / 模型推断。推断项保持该标记，不得冒充用户要求。
 - `verification_method`：确定性测试 / 静态检查 / 语义审查 / 人工确认。
 - `status`：`unverified / satisfied / failed / blocked / needs_human`。
-- 证据 ID 列表、适用版本、局限说明。
+- 证据 ID 列表、适用版本、Oracle 审定状态和局限说明。
 
 在正式修复前形成版本化的验收项集合。模型不能为让结果通过而删减必要条件；新需求或人工澄清生成新版本，并使受影响验证失效。需求含糊时可先完成调查，将含糊项保留为 `needs_human`。
 
@@ -63,7 +83,7 @@
 
 ```json
 {
-  "schema_version": "0.1-draft",
+  "schema_version": "0.2-draft",
   "example_only": true,
   "criterion_id": "AC-001",
   "description": "过期 Token 返回 401",
@@ -87,8 +107,17 @@
 | `not_reproduced` | 环境可执行，但目标失败未出现或证据不充分 | Issue 不存在 |
 | `environment_blocked` | 安装、导入、资源、权限、网络等使目标行为无法验证 | 已复现业务 Bug |
 | `needs_human` | 预期行为或复现 oracle 不明确 | 可以自动继续修复并验证 |
+| `unstable` | 相同受控输入出现相互矛盾的行为结果 | 用某一次通过覆盖前次失败；Run 结果转 needs_human 并注明 stability 原因 |
 
 非零退出码只是信号。需检查测试结果与失败位置，区分行为断言失败、测试收集问题和执行器异常。当前 pytest 的退出码定义参考[官方文档](https://docs.pytest.org/en/stable/reference/exit-codes.html)。
+
+## 稳定性与可选 A/B/A
+
+每次 TestObservation 保留独立命令 ID 和 `stability` 信息：`not_checked / no_variation_observed / unstable`。有限重复未见波动只能说明本次协议下未观察到差异，不能证明永不 flaky。
+
+A/B/A 为可选诊断模式：同一 Oracle 与固定环境配置下，分别在干净 A(base)、B(candidate)、A(base) 中验证预期 fail/pass/fail，并保存随机种子、时间控制及全部尝试。不会通过回退用户工作区完成实验，也不与单纯重试到通过混淆。
+
+A/B/A 有助于排查状态污染或环境变化，不能独立证明因果、需求匹配或候选没有过拟合。观察到矛盾结果后不给出 resolved_verified，保持不稳定分类，直到原因解决或人工限定可接受范围。[pytest 对不稳定测试的说明](https://docs.pytest.org/en/stable/explanation/flaky.html)
 
 ## 完成闸门
 
@@ -98,11 +127,14 @@
 2. 至少一个目标行为在 base 上失败，失败与 Issue 的必要条件对应。
 3. 同一冻结测试在当前候选上执行且通过，没有被跳过或改弱。
 4. 指定回归集确实执行且满足预定义策略；数量变化和新增 skip/xfail 被检查。
-5. 必要验收项都有适用当前版本的证据；语义项有审查结论或所需人工判定。
-6. PR Guardian 没有未处理的阻断发现，代码与测试变更均在审查范围。
+5. 必要验收项有 accepted Oracle 和适用当前版本的证据；必要语义项有政策要求的审定结论。
+6. 采用的审查策略被满足，且没有未处理的阻断发现。早期样例可采用有记录的独立人工审定；接入 PR Guardian 后记录其实际覆盖范围，不能把未运行的审查记成通过。
 7. 原始证据完整，且不存在候选变更导致的过期结果。
+8. 没有已观察到但未处理的稳定性矛盾或超出所声明信任边界的情况。
 
 满足后才输出 `resolved_verified`，并列明“在这些测试和环境范围内”。独立审查的置信判断无法替代缺失的确定性测试。
+
+只有执行/测试范围的验证通过而 Oracle 或必要审查不足时，verify_candidate 范围最多得到 `candidate_verified`；完整 repair 请求保持 needs_human 或 unresolved，不能转换成 resolved_verified。ClaimAssessment 返回逐项原因，LLM 不能覆盖它。
 
 只读调查与复现模式各自有范围验收，不强制执行后续修复。Run 可以完整交付调查报告，同时仍无法判断 Bug 是否存在。
 
@@ -118,6 +150,9 @@
 | 模型捏造日志 | 只接受可信 Runner 注册的证据 ID |
 | 模型看到自己的解释后自我认可 | Reviewer 使用独立上下文，Gate 独立读取结构化证据 |
 | 因预算停止被记为完成 | 执行状态与业务结果分别保存 |
+| 错误测试也完成 fail/pass | 独立检查断言与需求对应；provisional Oracle 不支持完整成功 |
+| 反复重试只保留最好结果 | 保留所有尝试；已观察到的稳定性冲突阻止完整成功 |
+| 静态页面保留旧的通过图标 | 页面绑定历史输入，当前状态须经显式校验，附失效原因 |
 
 这些规则提高在可控仓库中的结果可靠性，不构成对任意恶意测试代码的真实性证明。
 

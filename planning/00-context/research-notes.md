@@ -48,3 +48,11 @@ README、pyproject、执行器源文件通过 GitHub 连接器读取；版本号
 | 文件检索加 AST 足够定位小型 Bug | 在 3 个调优案例上统计 Top-5 | 先改查询和上下文分配，再判断是否需要图或向量检索 |
 
 没有把上游性能宣传、商业产品差异或付费需求当作已经验证的结论。作品创新性需要通过案例、对照实验和维护者反馈建立。
+
+## 本次规划评审补充核对
+
+2026-10-29 核对以下一手资料，作为设计边界参考，不引入相应新运行时依赖：
+
+- pytest 说明不稳定测试可能关联未受控状态、顺序或并发。因此本方案保留矛盾尝试、隔离重跑，把 A/B/A 作为诊断而非通过证明。[Flaky tests](https://docs.pytest.org/en/stable/explanation/flaky.html)
+- Python 的 replace 说明跨文件系统可能失败，成功重命名的原子语义不等于多个产物与 manifest 的事务。本方案采用同文件系统检查点，并单独验证进程恢复和持久性边界。[os.replace](https://docs.python.org/3/library/os.html#os.replace)
+- Bazel 的 action/cache 设计显式关联输入、命令、环境和产物。这支持“复用必须核对有效输入”的设计取向；RepoPilot 使用自己的轻量证据 DAG，不引入 Bazel，也不把构建缓存等同语义验证。[Remote caching](https://bazel.build/remote/caching)

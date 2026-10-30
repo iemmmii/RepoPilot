@@ -24,6 +24,7 @@
 - 真实恢复曾发现策略默认 int 60 与 JSON 读回 float 60.0 的指纹差异；已通过验证默认值并冻结策略修正，另加 JSON 往返回归，不放宽输入比对。
 - Ruff 检查与格式检查通过（55 个 Python 文件）；uv.lock 离线核对、wheel/sdist 构建通过。42/62 个分发条目包含新恢复/评估模块，不含 .env、.repopilot、虚拟环境或安装包。23 份 Markdown 的 UTF-8 与 89 个相对链接通过。
 - 本轮结束前按 repopilot-command- 前缀核对，无残留命令容器。版本控制使用 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7)，最终检查结果以当前 head 的 checks 为准；草稿阶段不自动合并。
+- 实现提交 ad3203b 的 [CI 运行 41013142962](https://github.com/iemmmii/RepoPilot/actions/runs/41013142962) 已实际 completed/success，覆盖 Windows/Linux × Python 3.11/3.13 与独立 Linux 容器作业。GitHub 传输曾短暂失败，恢复后已核对，不以本地结果代替远程检查。
 
 ## 三个受控调优案例
 

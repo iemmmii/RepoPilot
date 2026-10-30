@@ -113,3 +113,15 @@ def test_directory_digest_is_portable_over_mixed_case_paths(tmp_path):
         [entry.model_dump() for entry in entries]
     )
     assert Path(tmp_path / "input/a/b.py").is_file()
+
+
+def test_windows_reparse_detection_does_not_need_path_is_junction():
+    from types import SimpleNamespace
+
+    from repopilot.repository.materialize import is_link
+
+    class LegacyPath:
+        def lstat(self):
+            return SimpleNamespace(st_mode=0o040755, st_file_attributes=0x400)
+
+    assert is_link(LegacyPath())

@@ -188,6 +188,18 @@ Oracle 独立性先通过可追溯的上游协议映射落实：ItsDangerous #12
 
 实际验收及三个受控案例见 [M2 恢复记录](../04-progress/m2-stage-recovery.md)。下一步进入候选管理、Coding Engine 与动态证据失效，不将 3 个已知候选调优案例包装为真实项目修复率。
 
+## D-023：候选通过原始 Git 对象与不可变版本发布
+
+日期：2026-10-30。状态：P3-01 首版实现，验收见 [M3 候选记录](../04-progress/m3-candidate-management.md)。
+
+用户原工作区与 index 可能包含未提交工作，不能让 Worker 直接 checkout、git add 或 git apply。使用 detached/no-checkout worktree 注册版本；控制器从有界 Git 对象填充普通文件，通过独立 index、原始 blob 与 commit-tree 构造父提交固定的候选。禁用 hooks、fsmonitor、签名和自动维护；不触发目标过滤器，不改变用户分支和暂存内容。
+
+候选动作是带原文摘要的 JSON 文件替换，首版只允许已有非测试 Python 实现文件。批次先校验，再构造独立版本，最后原子替换 manifest；中断版本保留为 orphan 并占用十次修改尝试的目录上限。历史版本不可覆盖，中间审计文件损坏也阻止新发布。
+
+导出绑定会话、版本、提交、实际源码、修改文件及补丁摘要。check-export 将新候选出现后的旧导出标为 superseded，保留历史事实；这只是导出适用性检查，不替代后续 status/resume/Gate 的完整动态失效。显式 release 先退休会话，再逐个核验绝对路径、内容、链接和 Git 注册后移除受管工作树；未知 orphan 与外部修改不自动清理。
+
+取舍：暂不支持新增文件、依赖配置或测试修改，不启动模型 shell；后续合法样例证明需要时再扩展类型化权限。模型修复仍由 mini-swe-agent 生产适配任务接入，不把本单元的手写补丁验收当作模型修复率。
+
 ## 未决事项清单
 
 | 编号 | 问题 | 何时处理 | 默认推进方式 |

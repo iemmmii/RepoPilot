@@ -1,5 +1,6 @@
 import hashlib
 import re
+import stat
 from pathlib import Path, PurePosixPath
 
 from repopilot.domain.errors import RepoPilotError
@@ -20,6 +21,18 @@ PRIVATE_PARTS = {
     "id_rsa",
     "id_ed25519",
 }
+
+
+def is_link(path: Path) -> bool:
+    """Reject symlinks and Windows reparse points, including on Python 3.11."""
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    )
 
 
 def safe_relative(path: str) -> PurePosixPath:
@@ -56,7 +69,26 @@ def excluded(path: PurePosixPath) -> bool:
     )
 
 
+def validate_paths(names) -> None:
+    prefixes = {}
+    files = set()
+    for name in sorted(names):
+        parts = safe_relative(name).parts
+        for length in range(1, len(parts) + 1):
+            prefix = "/".join(parts[:length])
+            folded = prefix.casefold()
+            if (folded in prefixes and prefixes[folded] != prefix) or (
+                length < len(parts) and folded in files
+            ):
+                raise RepoPilotError(
+                    "snapshot_path_collision", "Snapshot paths collide on this host."
+                )
+            prefixes[folded] = prefix
+        files.add(name.casefold())
+
+
 def write_files(destination: Path, files: dict[str, bytes]) -> list[FileEntry]:
+    validate_paths(files)
     destination.mkdir(parents=True, exist_ok=False)
     destination.chmod(0o755)
     seen = set()
@@ -78,9 +110,11 @@ def write_files(destination: Path, files: dict[str, bytes]) -> list[FileEntry]:
 
 
 def directory_digest(root: Path) -> str:
+    if is_link(root):
+        raise RepoPilotError("snapshot_changed", "A snapshot root must not be a link.")
     files = []
     for path in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
-        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+        if is_link(path):
             raise RepoPilotError("snapshot_changed", "A snapshot contains an unsupported link.")
         if path.is_file():
             data = path.read_bytes()
@@ -94,7 +128,8 @@ def directory_digest(root: Path) -> str:
     return fingerprint(files)
 
 
-def materialize_repository(repository: Path, ref: str, destination: Path) -> SourceSnapshot:
+def read_repository(repository: Path, ref: str) -> tuple[SourceSnapshot, dict[str, bytes]]:
+    """Read bounded raw blobs, without checkout, filters, or importing target code."""
     commit = (
         _git(repository, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
         .decode()
@@ -142,17 +177,28 @@ def materialize_repository(repository: Path, ref: str, destination: Path) -> Sou
             )
         files[name] = blobs[end + 1 : end + 1 + expected_size]
         offset = end + expected_size + 2
-    entries = write_files(destination, files)
-    return SourceSnapshot(
+    validate_paths(files)
+    entries = [
+        FileEntry(path=name, sha256=hashlib.sha256(data).hexdigest(), size_bytes=len(data))
+        for name, data in sorted(files.items())
+    ]
+    snapshot = SourceSnapshot(
         commit=commit,
         source_digest=fingerprint([entry.model_dump() for entry in entries]),
         files=entries,
         excluded_paths=omitted,
     )
+    return snapshot, files
+
+
+def materialize_repository(repository: Path, ref: str, destination: Path) -> SourceSnapshot:
+    snapshot, files = read_repository(repository, ref)
+    write_files(destination, files)
+    return snapshot
 
 
 def freeze_suite(source: Path, destination: Path) -> FrozenSuite:
-    if not source.is_dir() or source.is_symlink():
+    if not source.is_dir() or is_link(source):
         raise RepoPilotError(
             "invalid_suite", "Suite must be a regular directory of Python test files."
         )
@@ -160,7 +206,7 @@ def freeze_suite(source: Path, destination: Path) -> FrozenSuite:
     total = 0
     for path in sorted(source.rglob("*")):
         relative = safe_relative(path.relative_to(source).as_posix())
-        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+        if is_link(path):
             raise RepoPilotError("invalid_suite", "Suite must not contain symlinks or junctions.")
         if path.is_dir() or "__pycache__" in relative.parts:
             continue

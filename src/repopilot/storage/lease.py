@@ -34,3 +34,9 @@ class RunLease:
     def close(self):
         # Closing releases the OS lock, including on abnormal process termination.
         self.stream.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()

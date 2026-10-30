@@ -56,7 +56,26 @@ def excluded(path: PurePosixPath) -> bool:
     )
 
 
+def validate_paths(names) -> None:
+    prefixes = {}
+    files = set()
+    for name in sorted(names):
+        parts = safe_relative(name).parts
+        for length in range(1, len(parts) + 1):
+            prefix = "/".join(parts[:length])
+            folded = prefix.casefold()
+            if (folded in prefixes and prefixes[folded] != prefix) or (
+                length < len(parts) and folded in files
+            ):
+                raise RepoPilotError(
+                    "snapshot_path_collision", "Snapshot paths collide on this host."
+                )
+            prefixes[folded] = prefix
+        files.add(name.casefold())
+
+
 def write_files(destination: Path, files: dict[str, bytes]) -> list[FileEntry]:
+    validate_paths(files)
     destination.mkdir(parents=True, exist_ok=False)
     destination.chmod(0o755)
     seen = set()
@@ -94,7 +113,8 @@ def directory_digest(root: Path) -> str:
     return fingerprint(files)
 
 
-def materialize_repository(repository: Path, ref: str, destination: Path) -> SourceSnapshot:
+def read_repository(repository: Path, ref: str) -> tuple[SourceSnapshot, dict[str, bytes]]:
+    """Read bounded raw blobs, without checkout, filters, or importing target code."""
     commit = (
         _git(repository, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
         .decode()
@@ -142,13 +162,24 @@ def materialize_repository(repository: Path, ref: str, destination: Path) -> Sou
             )
         files[name] = blobs[end + 1 : end + 1 + expected_size]
         offset = end + expected_size + 2
-    entries = write_files(destination, files)
-    return SourceSnapshot(
+    validate_paths(files)
+    entries = [
+        FileEntry(path=name, sha256=hashlib.sha256(data).hexdigest(), size_bytes=len(data))
+        for name, data in sorted(files.items())
+    ]
+    snapshot = SourceSnapshot(
         commit=commit,
         source_digest=fingerprint([entry.model_dump() for entry in entries]),
         files=entries,
         excluded_paths=omitted,
     )
+    return snapshot, files
+
+
+def materialize_repository(repository: Path, ref: str, destination: Path) -> SourceSnapshot:
+    snapshot, files = read_repository(repository, ref)
+    write_files(destination, files)
+    return snapshot
 
 
 def freeze_suite(source: Path, destination: Path) -> FrozenSuite:

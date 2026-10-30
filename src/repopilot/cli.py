@@ -13,6 +13,15 @@ from repopilot.evaluation.controlled import evaluate
 from repopilot.github.issues import fetch_issue, read_issue_file
 from repopilot.providers.deepseek import DeepSeekProvider
 from repopilot.providers.lexical import LexicalProvider
+from repopilot.repository.candidates import (
+    apply_proposal,
+    candidate_status,
+    check_export,
+    create_candidate,
+    export_candidate,
+    read_proposal,
+    release_candidate,
+)
 from repopilot.sandbox.docker import DEFAULT_IMAGE, DockerRunner
 from repopilot.storage.runs import read_status
 from repopilot.workflow.investigation import investigate
@@ -63,10 +72,46 @@ def main(argv: list[str] | None = None) -> int:
         "evaluate", help="Run the three controlled tuning cases without model requests."
     )
     evaluation.add_argument("--output-dir", type=Path, default=Path(".repopilot/evaluations"))
+    candidates = commands.add_parser("candidate", help="Manage bounded implementation patches.")
+    candidate_commands = candidates.add_subparsers(dest="candidate_command", required=True)
+    create = candidate_commands.add_parser("create", help="Create a detached managed candidate.")
+    create.add_argument("--repo", type=Path, required=True)
+    create.add_argument("--base-ref", required=True)
+    create.add_argument("--output-dir", type=Path, default=Path(".repopilot/candidates"))
+    for name in ("status", "apply", "export", "check-export", "release"):
+        command = candidate_commands.add_parser(name)
+        command.add_argument("candidate_dir", type=Path)
+        if name == "apply":
+            command.add_argument("--proposal", type=Path, required=True)
+        if name == "export":
+            command.add_argument("--output-dir", type=Path, required=True)
+        if name == "check-export":
+            command.add_argument("--export-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
             result = inspect_environment()
+        elif args.command == "candidate":
+            if args.candidate_command == "create":
+                root = create_candidate(args.repo, args.base_ref, args.output_dir)
+                result = candidate_status(root)
+            elif args.candidate_command == "status":
+                result = candidate_status(args.candidate_dir)
+            elif args.candidate_command == "apply":
+                result = apply_proposal(args.candidate_dir, read_proposal(args.proposal))
+            elif args.candidate_command == "release":
+                result = release_candidate(args.candidate_dir)
+            elif args.candidate_command == "check-export":
+                result = check_export(args.candidate_dir, args.export_dir)
+            else:
+                result = export_candidate(args.candidate_dir, args.output_dir)
+            print(json.dumps(result, ensure_ascii=True, indent=2))
+            return (
+                0
+                if result.get("integrity", "valid") == "valid"
+                and result.get("applicability", "current") == "current"
+                else 1
+            )
         elif args.command == "evaluate":
             root = evaluate(args.output_dir)
             summary = json.loads((root / "summary.json").read_bytes())

@@ -4,7 +4,7 @@
 
 已实现 **Issue → 固定 Git 版本 → 带文件依据的调查报告**，支持 DeepSeek 和离线检索。M2 新增显式复现和已知候选对照：冻结外部 unittest，在受限 Linux 容器执行并保存命令证据、Oracle、输入摘要和证据 DAG。
 
-项目不设固定完成期限，按质量里程碑推进。当前可验证指定 Git ref，并恢复已提交的验证阶段；尚不生成修复或执行完整项目回归。结果最多为 candidate_verified，不宣称 Issue 已完整解决。
+项目不设固定完成期限，按质量里程碑推进。当前支持受管候选提案、指定 Git ref 验证及验证阶段恢复；尚未接入模型修复或执行完整项目回归。结果最多为 candidate_verified，不宣称 Issue 已完整解决。
 
 ## 运行
 
@@ -48,6 +48,24 @@ uv run repopilot evaluate
 
 `evaluate` 运行三个版本化受控调优案例，保存到 `.repopilot/evaluations/`：错误状态码、空输入及依赖缺失。它使用已知候选，不调用模型；这些结果不代表真实 Agent 修复率。完整边界、进程退出实验和评估记录见 [M2 恢复与评估记录](planning/04-progress/m2-stage-recovery.md)。
 
+## 受管候选补丁
+
+从固定 base 创建独立候选，使用 JSON 提案替换已有 Python 实现文件。每项修改包含 `path`、当前原文的 `before_sha256` 和完整新 `content`，顶层包含 `explanation` 与 `replacements`。协议定义见 `src/repopilot/domain/patches.py`。
+
+```powershell
+uv run repopilot candidate create --repo <本地仓库> --base-ref <固定提交>
+uv run repopilot candidate apply <candidate_dir> --proposal <proposal.json>
+uv run repopilot candidate export <candidate_dir> --output-dir <新的导出目录>
+uv run repopilot candidate check-export <candidate_dir> --export-dir <导出目录>
+uv run repopilot candidate status <candidate_dir>
+```
+
+导出目录包含 `patch.diff` 和 `candidate.json`；后者的 `base_ref`/`candidate_ref` 可用于前述 `verify-candidate`。导出本身是 unverified，不执行测试。候选更新后，旧导出查询返回 superseded 和退出码 1；历史验证仍只适用于当时的固定提交。`status <run目录>` 目前仍仅检查历史 Run 完整性，不自动检查候选、Oracle 或环境是否变化。
+
+候选不改动用户原工作区或 index，不运行目标 hooks/过滤器。首版拒绝新增/删除文件、测试、配置、链接及未匹配原文摘要的修改；最多十次修改尝试，中断产生的 orphan 同样占用目录上限。未提交的版本不会自动晋升。
+
+需要回收已导出候选时运行 `uv run repopilot candidate release <candidate_dir>`：退休会话并移除其已核验的受管工作树，保留提案、补丁和 manifest；遇到修改或链接时拒绝删除，orphan 需人工检查，不运行全局 prune。释放后禁止继续修改和导出，Git 对象未来可能被仓库 GC 清理。实际验收见 [M3 候选记录](planning/04-progress/m3-candidate-management.md)。
+
 ## 代码布局
 
 ```text
@@ -55,7 +73,7 @@ src/repopilot/
 ├── cli.py、__main__.py    # 命令行入口
 ├── domain/               # 领域记录、契约、错误
 ├── github/               # Issue 输入与只读 API
-├── repository/           # Git 快照、静态检索与 AST
+├── repository/           # Git 快照、静态检索、候选与补丁
 ├── providers/            # Provider 协议、DeepSeek、离线基线
 ├── sandbox/              # 受限 Docker 生命周期、预算与命令证据
 ├── verification/         # 冻结测试观察与确定性 Gate

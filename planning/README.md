@@ -31,6 +31,7 @@ planning/
 │   ├── milestones.md                   ← 分阶段任务与交付条件
 │   ├── m2-first-verification.md         ← M2 首个受控闭环的实施边界
 │   ├── m2-stage-recovery.md             ← 阶段提交、预算与调优案例计划
+│   ├── m3-candidate-management.md       ← 受管候选与补丁边界计划
 │   └── evaluation.md                   ← 评估集、指标与实验设计
 ├── 04-progress/
 │   ├── progress.md                     ← 唯一的任务状态和进度台账
@@ -38,7 +39,8 @@ planning/
 │   ├── wsl2-environment.md             ← 首次 WSL2 运行时核验
 │   ├── container-environment.md        ← 执行环境选择与受限容器验证
 │   ├── m2-controlled-verification.md   ← 产品执行器与真实对照交付记录
-│   └── m2-stage-recovery.md             ← 阶段恢复与三案例实际验收
+│   ├── m2-stage-recovery.md             ← 阶段恢复与三案例实际验收
+│   └── m3-candidate-management.md       ← 候选生命周期与真实对照验收
 └── 05-decisions/
     ├── decision-log.md                 ← 决策依据、替代方案和未决事项
     └── version-control.md              ← 分支、提交、PR 和仓库规范
@@ -84,4 +86,4 @@ planning/
 
 用户已恢复项目任务。M2 新增受限 DockerRunner、冻结 unittest、Oracle/Gate、命令/日志证据与最小 DAG，真实样例完成复现与已知候选对照，见 [M2 交付记录](04-progress/m2-controlled-verification.md)。只读调查仍可独立使用。
 
-P2-05 的阶段检查点、恢复与初始评估已经完成，见 [恢复与评估记录](04-progress/m2-stage-recovery.md)。下一步推进 P3 的模型修复、证据失效及完整故障矩阵；当前仍不支持自动修复、完整回归或 resolved_verified。
+P2-05 的阶段检查点、恢复与初始评估已经完成，见 [恢复与评估记录](04-progress/m2-stage-recovery.md)。P3-01 的受管候选、受限提案、补丁导出及过期检查已实现，见 [候选交付记录](04-progress/m3-candidate-management.md)。下一步接生产 Coding Engine，再推进模型修复、完整证据失效与故障矩阵；当前仍不支持自动修复、完整回归或 resolved_verified。

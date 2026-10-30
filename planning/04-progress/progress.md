@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-阶段：M2 的受控验证、阶段恢复与三个调优案例已验收；M3 模型修复与动态失效待实施。
+阶段：M2 已验收；M3 开始实施，受管候选与补丁生命周期已完成窄权限首版，模型修复与完整动态失效待实施。
 版本基线：PR #5/#6 已集成到 main，当前基线为 [`fc5f903`](https://github.com/iemmmii/RepoPilot/commit/fc5f903)，本助手未执行合并。
-实际实现：DeepSeek/离线调查，显式 reproduce/verify-candidate/resume/evaluate；代码按 11 个功能子包组织，调查不自动执行目标代码。
-下一项：P3-01 的候选/工作树管理与 P3-02 的受限 Coding Engine；本轮证据见 [M2 恢复记录](m2-stage-recovery.md)。
-交付分支 codex/m2-stage-recovery 的 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7) 核对时仍为草稿、未合并。实现与结果记录提交的 5 项 CI 均已通过；转审阅遇到连接器写权限不足、本机 API TLS EOF 和备用浏览器超时，状态更新尚未完成，不自动合并。
+实际实现：DeepSeek/离线调查，显式 reproduce/verify-candidate/resume/evaluate，以及 candidate 创建/应用/导出/适用性检查/退休；代码按 11 个功能子包组织，调查不自动执行目标代码。
+下一项：P3-02 的受限 Coding Engine、持久模型预算与真实模型补丁；本轮证据见 [M3 候选记录](m3-candidate-management.md)。
+前序 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7) 本轮已成功转为可审阅，未合并。当前 `codex/m3-candidate-management` 的 [PR #8](https://github.com/iemmmii/RepoPilot/pull/8) 以其为基础；CI 与审阅状态见交付记录，不自动合并。
 
 ## 阶段看板
 
@@ -17,7 +17,7 @@
 | M0 需求与规划 | 已完成 | 读取最后 5 轮，形成文档基线并检查 |
 | M1 运行基础与只读调查 | 已完成 | 只读闭环、模型、底座合成接口及 Linux 受限容器小实验已核验；不代表生产引擎和 Runner 已集成 |
 | M2 独立依据与最小验证 | 已完成 | 真实对照、原子阶段恢复、持久预算与 C01/C02/C03 调优清单通过 |
-| M3 可靠修复 | 未开始 | 修复循环、证据失效、故障注入和初始对照 |
+| M3 可靠修复 | 进行中 | 候选与补丁管理首版已验收；修复引擎、完整失效与对照待实施 |
 | M4 独立审查与评估 | 未开始 | 依赖候选补丁和有效测试证据 |
 | M5 真实有效性与成熟度 | 未开始 | 多仓库案例、可重跑评估和证据浏览 |
 
@@ -41,12 +41,12 @@
 | P2-06 | 已完成（最小契约） | Oracle 绑定来源/套件/ID/审定依据；样例映射上游维护者已接受协议；不认证 Worker 的 accepted 声明 |
 | P2-07 | 已完成（候选范围） | 指纹/退出/全部选择/Oracle/稳定性与缺证据拒判；最多 candidate_verified，不产生完整修复成功 |
 | P2-08 | 已完成（最小图） | 拓扑序类型节点与必需依赖，Artifact/日志与 Run 绑定；动态失效和恢复留在 P3 |
-| P3-01 | 未开始 | — |
+| P3-01 | 已完成（窄权限首版） | detached/no-checkout worktree、原始 Git 提交、受限替换、版本/补丁摘要、过期检查及受管目录退休 |
 | P3-02 | 未开始 | — |
 | P3-03 | 未开始 | — |
 | P3-04 | 未开始 | — |
 | P3-05 | 未开始 | — |
-| P3-06 | 未开始 | 失效传播与当前结论撤销 |
+| P3-06 | 部分前置 | check-export 能识别新候选后的旧导出；status/resume/Gate 的完整动态撤销尚未实现 |
 | P3-07 | 部分提前验证 | F01/F03/F04 已有真实 Docker 退出恢复；完整 F01～F06 矩阵继续在 M3 完成 |
 | P3-08 | 未开始 | 核心机制首轮对照 |
 | P4-01 | 未开始 | — |
@@ -216,6 +216,14 @@
 - 本轮仍为 0 次模型请求，无宿主目标代码执行。D-022 与实际边界见 [恢复交付记录](m2-stage-recovery.md)；M2 完成，M3 尚无模型修复能力。
 - 独立 PR #7 汇集规划、实现与验收，远程检查以该 PR 当前 head 为准。
 - 实现提交 ad3203b 的远程 CI 41013142962 已 completed/success；不可变链接见恢复交付记录。后续纯记录提交的当前检查以 PR 页面为准。
+
+## 2026-10-30：M3 受管候选与补丁生命周期
+
+- 先上传 P3-01 规划，再在独立分支实现类型化提案、原始 Git blob/独立 index 提交、不可变版本与原子发布；用户原工作区、index、hooks/过滤器均有反例验证。
+- 候选更新后旧导出为 superseded；导出与提案不执行测试、不直接支持成功。显式退休只清理经绝对路径、内容与注册核对的受管工作树；中断 orphan 保留并消耗上限。
+- 正式手写 C01 错误/正确补丁对照：Run b3cfc66af33e4f0eaaf1afd71e245e84 为 reproduced，4393c0ae790d4eaebeed71291f248756 为 candidate_verified；各 2 条容器命令，Artifact/graph 均 valid，模型请求 0。
+- PR #7 的 Ready 转换本轮已实际完成；当前 PR #8 以其为基础，不自动合并。最终本地和远程检查在交付记录追加。
+- D-023 与具体发现见 [M3 候选记录](m3-candidate-management.md)。尚无生产 Coding Engine 或模型生成修复，不将手写样例记为 P3-05 完成。
 
 ## 后续条目模板
 

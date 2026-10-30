@@ -2,6 +2,8 @@
 
 日期：2026-10-30（Asia/Shanghai）。关联任务：P1-01；后续产品接入：P2-01。
 
+本文件保留环境准备结束时的状态。用户恢复项目后已接入首版产品 DockerRunner，最新执行能力见 [M2 交付记录](m2-controlled-verification.md)；下文“尚未实现”均指环境准备阶段。
+
 ## 选择依据
 
 用户要求优先只用 WSL；不满足时继续安装所需工具。普通 WSL 发行版默认能够访问 Windows 驱动器并启动 Windows 程序，不能直接作为 RepoPilot 的受限执行器。

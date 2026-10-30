@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-阶段：M1 只读调查与环境小实验已完成；WSL2 + Docker Desktop 的受限容器探针通过，产品 SandboxRunner 尚未实现。
-版本基线：规划与 M1 已经集成到 main，当前基线为 [`2964c0d`](https://github.com/iemmmii/RepoPilot/commit/2964c0dcf5a632b937c6639dc8954bfef4976144)，不再依赖未合并的规划分支。
-实际实现：DeepSeek/离线调查 CLI、固定 Git 快照、静态检索、引用校验、Run/报告保存与完整性查询；代码按 8 个功能子包组织。
-下一项：环境准备按用户最新的条件授权完成；其余项目实现继续暂停。以后恢复时进入 P2-01，将已验证的运行时接入受控 Runner，不以宿主执行代替。
-当前没有正在后台运行的实现任务；Docker Desktop 的 Linux 引擎已启动，探针容器已经清理。
+阶段：M2 首个受控复现/候选对照已交付；产品 DockerRunner、冻结测试、Oracle/Gate 与最小证据图可运行。阶段恢复和 3 个调优案例尚未完成。
+版本基线：规划、M1 与环境 PR #4 已集成到 main，当前基线为 [`fd0c916`](https://github.com/iemmmii/RepoPilot/commit/fd0c916d901c7676cbed8c66658c75c973213cd7)。
+实际实现：DeepSeek/离线调查，以及显式 reproduce/verify-candidate；代码按 10 个功能子包组织，调查不自动执行目标代码。
+下一项：P2-05 阶段级检查点、恢复与初始评估；本轮交付证据见 [M2 记录](m2-controlled-verification.md)。
+当前工作分支为 codex/m2-controlled-verification，基于环境 PR #4 合并后的 main；不自动合并主干。
 
 ## 阶段看板
 
@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | M0 需求与规划 | 已完成 | 读取最后 5 轮，形成文档基线并检查 |
 | M1 运行基础与只读调查 | 已完成 | 只读闭环、模型、底座合成接口及 Linux 受限容器小实验已核验；不代表生产引擎和 Runner 已集成 |
-| M2 独立依据与最小验证 | 未开始 | 用已知补丁验证 Oracle、Runner、Gate 和证据图 |
+| M2 独立依据与最小验证 | 部分完成 | 真实复现与已知候选对照通过，P2-05 恢复和初始评估未完成 |
 | M3 可靠修复 | 未开始 | 修复循环、证据失效、故障注入和初始对照 |
 | M4 独立审查与评估 | 未开始 | 依赖候选补丁和有效测试证据 |
 | M5 真实有效性与成熟度 | 未开始 | 多仓库案例、可重跑评估和证据浏览 |
@@ -33,14 +33,14 @@
 | P1-04 | 已完成 | 固定 Git commit、受限文本/AST、路径和行号校验；不导入目标代码 |
 | P1-05 | 已完成 | 有文件依据的调查报告，假设和未执行命令单列；真实模型已定位关键代码 |
 | P1-06 | 已完成 | doctor/investigate/status、原子 manifest、失败保存、29 项测试及真实 DeepSeek 样例 |
-| P2-01 | 未开始 | — |
-| P2-02 | 未开始 | — |
-| P2-03 | 未开始 | — |
-| P2-04 | 未开始 | — |
+| P2-01 | 已完成（受控样例范围） | 本机固定镜像、受限 Git 源码/套件副本与 DockerRunner；真实权限反例通过 |
+| P2-02 | 已完成 | 控制面命令/日志摘要、实际退出、超时/中断/输出预算与清理记录；真实容器测试通过 |
+| P2-03 | 已完成 | 外部 stdlib unittest 冻结、完整 ID 选择、suite_hash；目标失败与导入错误/跳过明确区分 |
+| P2-04 | 已完成（首版） | reproduced/not_reproduced/environment_blocked/needs_human 分类；同输入矛盾标 unstable，生成报告 |
 | P2-05 | 未开始 | — |
-| P2-06 | 未开始 | Oracle 来源与独立审定 |
-| P2-07 | 未开始 | 最小 Claim 与 Gate |
-| P2-08 | 未开始 | 类型化证据 DAG |
+| P2-06 | 已完成（最小契约） | Oracle 绑定来源/套件/ID/审定依据；样例映射上游维护者已接受协议；不认证 Worker 的 accepted 声明 |
+| P2-07 | 已完成（候选范围） | 指纹/退出/全部选择/Oracle/稳定性与缺证据拒判；最多 candidate_verified，不产生完整修复成功 |
+| P2-08 | 已完成（最小图） | 拓扑序类型节点与必需依赖，Artifact/日志与 Run 绑定；动态失效和恢复留在 P3 |
 | P3-01 | 未开始 | — |
 | P3-02 | 未开始 | — |
 | P3-03 | 未开始 | — |
@@ -196,6 +196,15 @@
 - 修正当前父进程未刷新 PATH 导致 Docker 凭据辅助程序找不到的问题，仅补齐验证子进程 PATH。未改变全局代理设置，未将凭据传给容器。
 - P1-01 按其“小实验”验收记为完成，M1 完成；M2 产品 Runner、Oracle 和目标项目执行仍未开始。未调用模型或运行第三方项目代码。
 - D-020 与完整结果见[容器环境记录](container-environment.md)。本轮继续更新 [PR #4](https://github.com/iemmmii/RepoPilot/pull/4)，其余项目实现保持暂停。
+
+## 2026-10-30：恢复项目并交付 M2 首个受控验证闭环
+
+- 用户恢复项目任务；在独立分支实现 P2-01～P2-04、P2-06～P2-08 的首版，保持规划与程序源码分开。
+- 新增 10 个功能包中的 sandbox/verification、类型化执行与 Oracle/图契约，新增 reproduce/verify-candidate；M1 调查行为和 0.1 manifest 保持兼容。
+- 正式 Run 05140b6428d949c394b367d1b8266c88：上游修复父提交 base 1 failed / 5 passed，候选 6 passed，candidate_verified；18 个 Artifact 与图完整性 valid。
+- 原调查版本 1.1.0 的 Run 9d1eabef9bca459dbb077b23f9246ad3：1 failed / 5 passed，reproduced；13 个 Artifact 与图完整性 valid。
+- 105 项默认离线测试通过，真实容器另行 8 项通过；无目标宿主执行、无新增模型请求、无命令容器残留。最终仓库检查及远程结果在交付记录追加。
+- 新增 D-021；独立依据、首个真实失败及修正、命令与限制见 [M2 交付记录](m2-controlled-verification.md)。P2-05 尚未开始，不将新 Run 的原子 manifest 当作阶段恢复。
 
 ## 后续条目模板
 

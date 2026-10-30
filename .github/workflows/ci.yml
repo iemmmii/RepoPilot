@@ -33,3 +33,22 @@ jobs:
       - run: uv run --frozen ruff check src tests scripts
       - run: uv run --frozen ruff format --check src tests scripts
       - run: uv run --frozen pytest -q
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: "0.13.6"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Prepare pinned public image
+        run: docker pull python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
+      - name: Exercise real sandbox boundaries and stops
+        run: uv run --frozen pytest -q tests/container
+        env:
+          REPOPILOT_DOCKER_TESTS: "1"

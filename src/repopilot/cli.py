@@ -8,11 +8,14 @@ from dotenv import load_dotenv
 from repopilot import __version__
 from repopilot.diagnostics.environment import inspect_environment
 from repopilot.domain.errors import RepoPilotError
+from repopilot.domain.verification import SandboxPolicy
 from repopilot.github.issues import fetch_issue, read_issue_file
 from repopilot.providers.deepseek import DeepSeekProvider
 from repopilot.providers.lexical import LexicalProvider
+from repopilot.sandbox.docker import DEFAULT_IMAGE, DockerRunner
 from repopilot.storage.runs import read_status
 from repopilot.workflow.investigation import investigate
+from repopilot.workflow.verification import verify
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,6 +34,23 @@ def main(argv: list[str] | None = None) -> int:
     investigation.add_argument("--ref", default="HEAD")
     investigation.add_argument("--provider", choices=["deepseek", "lexical"], default="deepseek")
     investigation.add_argument("--output-dir", type=Path, default=Path(".repopilot/runs"))
+    for name in ("reproduce", "verify-candidate"):
+        verification = commands.add_parser(
+            name, help="Execute a frozen unittest suite in a restricted Linux container."
+        )
+        issue_source = verification.add_mutually_exclusive_group(required=True)
+        issue_source.add_argument("--issue-url")
+        issue_source.add_argument("--issue-file", type=Path)
+        verification.add_argument("--repo", type=Path, required=True)
+        verification.add_argument("--base-ref", required=True)
+        if name == "verify-candidate":
+            verification.add_argument("--candidate-ref", required=True)
+        verification.add_argument("--suite", type=Path, required=True)
+        verification.add_argument("--oracle", type=Path, required=True)
+        verification.add_argument("--image", default=DEFAULT_IMAGE)
+        verification.add_argument("--docker-context")
+        verification.add_argument("--timeout", type=float, default=60)
+        verification.add_argument("--output-dir", type=Path, default=Path(".repopilot/runs"))
     status = commands.add_parser("status", help="Check saved artifacts against their manifest.")
     status.add_argument("run_dir", type=Path)
     args = parser.parse_args(argv)
@@ -41,6 +61,38 @@ def main(argv: list[str] | None = None) -> int:
             result = read_status(args.run_dir)
             print(json.dumps(result, ensure_ascii=True, indent=2))
             return 0 if result["artifact_integrity"] == "valid" else 1
+        elif args.command in {"reproduce", "verify-candidate"}:
+            from pydantic import ValidationError
+
+            try:
+                policy = SandboxPolicy(timeout_seconds=args.timeout)
+            except ValidationError as error:
+                raise RepoPilotError(
+                    "invalid_policy", "Timeout must be finite, positive and at most 300 seconds."
+                ) from error
+            issue = (
+                read_issue_file(args.issue_file) if args.issue_file else fetch_issue(args.issue_url)
+            )
+            root = verify(
+                issue=issue,
+                repository=args.repo,
+                base_ref=args.base_ref,
+                candidate_ref=getattr(args, "candidate_ref", None),
+                suite_path=args.suite,
+                oracle_path=args.oracle,
+                output_root=args.output_dir,
+                runner=DockerRunner(image=args.image, policy=policy, context=args.docker_context),
+            )
+            saved = read_status(root)
+            result = {
+                "run_dir": str(root),
+                "report": str(root / "verification.md"),
+                "outcome": saved["outcome"],
+                "tests_executed": saved["tests_executed"],
+            }
+            print(json.dumps(result, ensure_ascii=True, indent=2))
+            expected = "candidate_verified" if args.command == "verify-candidate" else "reproduced"
+            return 0 if result["outcome"] == expected else 1
         else:
             issue = (
                 read_issue_file(args.issue_file) if args.issue_file else fetch_issue(args.issue_url)

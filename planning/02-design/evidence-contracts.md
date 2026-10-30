@@ -2,6 +2,8 @@
 
 状态：数据设计草案 v0.2；字段在实现时形成正式 Schema。下文示例是设计数据，没有实际运行结果。
 
+实现更新（2026-10-30）：首版命令、Oracle、观察、Gate 与图契约已在 domain/verification.py、domain/evidence.py 落地，见 [M2 交付记录](../04-progress/m2-controlled-verification.md)。当前验证 Run 使用 0.2 manifest 和带 base/candidate 前缀的平铺 Artifact；下述阶段/attempt 目录、恢复和完整修复 Gate 仍为后续设计，不能据此推断已实现。
+
 ## 一次运行的产物布局
 
 未来运行数据使用 `.repopilot/`，与项目管理目录 `planning/` 分离：

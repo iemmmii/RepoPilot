@@ -75,16 +75,26 @@ class Artifact(Record):
 
 
 class Manifest(Record):
-    schema_version: Literal["0.1"] = "0.1"
+    schema_version: Literal["0.1", "0.2"] = "0.1"
     run_id: str
-    requested_scope: Literal["investigate"] = "investigate"
+    requested_scope: Literal["investigate", "reproduce", "verify_candidate"] = "investigate"
     created_at: datetime
     updated_at: datetime
-    execution_status: Literal["running", "completed", "failed"]
-    outcome: Literal["investigated"] | None = None
+    execution_status: Literal["running", "completed", "failed", "interrupted"]
+    outcome: (
+        Literal[
+            "investigated",
+            "reproduced",
+            "not_reproduced",
+            "environment_blocked",
+            "needs_human",
+            "candidate_verified",
+        ]
+        | None
+    ) = None
     base_commit: str | None = None
     artifacts: list[Artifact] = Field(default_factory=list)
     usage: Usage
     error_code: str | None = None
     error_message: str | None = None
-    tests_executed: Literal[False] = False
+    tests_executed: bool = False

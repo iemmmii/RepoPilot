@@ -2,9 +2,9 @@
 
 面向 GitHub Issue 的证据驱动调查、复现、修复与验收 Agent，重点研究修复结论的可追溯性、证据失效与可靠恢复。
 
-M1 已实现 **Issue → 固定 Git 版本 → 相关代码定位 → 带文件依据的调查报告**，支持 DeepSeek 和离线检索模式。当前不执行目标项目代码或测试。
+已实现 **Issue → 固定 Git 版本 → 带文件依据的调查报告**，支持 DeepSeek 和离线检索。M2 新增显式复现和已知候选对照：冻结外部 unittest，在受限 Linux 容器执行并保存命令证据、Oracle、输入摘要和证据 DAG。
 
-项目不设固定完成期限，按质量里程碑推进。后续研究证据失效、独立 Oracle、隔离复现、修复与可靠恢复；这些后续能力尚未实现。
+项目不设固定完成期限，按质量里程碑推进。当前可验证指定 Git ref，尚不生成修复、执行完整项目回归或恢复中断阶段；结果最多为 candidate_verified，不宣称 Issue 已完整解决。
 
 ## 运行
 
@@ -23,6 +23,20 @@ uv run repopilot investigate --issue-url https://github.com/pallets/itsdangerous
 
 离线使用 `--issue-file examples/issues/itsdangerous-126.json --provider lexical`。报告与 manifest 保存在 `.repopilot/runs/<run_id>/`；`repopilot status <run目录>` 核对产物完整性，不代表修复已完成。完整样例准备、本机运行和验证记录见 [M1 交付记录](planning/04-progress/m1-investigation.md)。
 
+## 复现与候选对照
+
+需要本机 Linux Docker 引擎；Windows 已验证 WSL2 + Docker Desktop。产品不会自动拉取镜像、安装目标依赖或回退宿主执行。首次使用显式准备固定镜像与样例仓库，已有仓库目录时保留原目录：
+
+```powershell
+docker pull python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
+git clone --no-checkout https://github.com/pallets/itsdangerous.git .repopilot/repositories/itsdangerous
+uv run repopilot verify-candidate --issue-file examples/issues/itsdangerous-126.json --repo .repopilot/repositories/itsdangerous --base-ref 1a9b8d1f9968eb248bda69f39d373a6330b692ba --candidate-ref c30678d19e37011890e2374cca04f7789e101793 --suite examples/verification/itsdangerous-126/suite --oracle examples/verification/itsdangerous-126/oracle.json
+```
+
+仅复现时改用 `reproduce` 并省略 `--candidate-ref`。`investigate` 仍始终只读，不会自动运行报告中的候选命令。模型密钥不会传给容器，这两个验证命令不调用模型。
+
+`--suite` 和 `--oracle` 是操作者审核过的控制面输入，不能直接采用 Worker 提供的 accepted 声明；套件字节必须匹配 Oracle 的 suite_hash，所有指定目标和回归 ID 必须实际执行。示例的独立依据来自已合并的上游 PR #133，而非本次测试结果。具体范围、真实结果及限制见 [M2 交付记录](planning/04-progress/m2-controlled-verification.md)。
+
 ## 代码布局
 
 ```text
@@ -32,13 +46,15 @@ src/repopilot/
 ├── github/               # Issue 输入与只读 API
 ├── repository/           # Git 快照、静态检索与 AST
 ├── providers/            # Provider 协议、DeepSeek、离线基线
-├── workflow/             # 调查编排
+├── sandbox/              # 受限 Docker 生命周期、预算与命令证据
+├── verification/         # 冻结测试观察与确定性 Gate
+├── workflow/             # 调查、复现与候选对照编排
 ├── storage/              # 产物、检查点与完整性
 ├── reporting/            # 报告渲染
 └── diagnostics/          # 环境诊断
 ```
 
-测试按 `tests/unit/<功能>/` 与 `tests/integration/` 分开。未来模块在需要时加入，不提前创建空子系统。
+测试按 `tests/unit/<功能>/`、`tests/integration/` 与 `tests/container/` 分开。未来模块在需要时加入，不提前创建空子系统。
 
 ## 验证
 
@@ -49,6 +65,8 @@ uv run --frozen pytest -q
 ```
 
 单元与集成测试禁用 Python 网络连接，模型 HTTP 使用 MockTransport。真实模型验证是单独的手动样例，不在 CI 中读取 API 密钥。
+
+真实容器测试需要已缓存的镜像；Windows 使用 `$env:REPOPILOT_DOCKER_TESTS='1'` 后运行 `uv run --frozen pytest -q tests/container`。CI 另设 Linux 容器作业，显式拉取固定公开镜像后执行，不把默认跳过记作容器测试通过。
 
 - [规划总入口](planning/README.md)
 - [实施里程碑](planning/03-plan/milestones.md)

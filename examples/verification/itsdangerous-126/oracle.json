@@ -1,0 +1,24 @@
+{
+  "criterion_id": "AC-TIMESTAMP-NEGATIVE-AGE",
+  "requirement": "When max_age is supplied, a correctly signed timestamp later than the verification clock must raise SignatureExpired. Preserve current, max_age boundary, expired, unlimited-age and invalid-signature behavior.",
+  "issue_url": "https://github.com/pallets/itsdangerous/issues/126",
+  "source_refs": [
+    "https://github.com/pallets/itsdangerous/issues/126",
+    "https://github.com/pallets/itsdangerous/pull/133",
+    "https://github.com/pallets/itsdangerous/commit/c30678d19e37011890e2374cca04f7789e101793"
+  ],
+  "suite_hash": "eb9cdd96fd456f7f3c7b4a1fd313f1cba2f856abf2ea82de07f613c590932d1a",
+  "target_tests": [
+    "test_timestamps.TimestampContract.test_future_rejected"
+  ],
+  "regression_tests": [
+    "test_timestamps.TimestampContract.test_current_valid",
+    "test_timestamps.TimestampContract.test_at_max_age_valid",
+    "test_timestamps.TimestampContract.test_past_expired",
+    "test_timestamps.TimestampContract.test_no_age_limit_preserved",
+    "test_timestamps.TimestampContract.test_bad_signature_rejected"
+  ],
+  "assessment_status": "accepted",
+  "assessed_by": "RepoPilot protocol mapping from upstream maintainer acceptance; not user or manual approval of a generated repair",
+  "assessment_basis": "The strict negative-age requirement and exception type were accepted by the upstream maintainers in merged PR #133 and its test at commit c30678d19e37011890e2374cca04f7789e101793. This original frozen unittest suite maps that independently published protocol and preserves adjacent documented/existing behavior. It does not infer additional clock-skew tolerance, cross-version migration guarantees, full project regression, or a semantic patch review. Acceptance is scoped to this criterion, not inferred from this run's fail/pass."
+}

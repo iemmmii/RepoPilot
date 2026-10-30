@@ -7,7 +7,9 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from repopilot.domain.errors import RepoPilotError
+from repopilot.domain.evidence import EvidenceGraph
 from repopilot.domain.models import Artifact, Manifest, Record, Usage
+from repopilot.domain.verification import CommandEvidence
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -25,7 +27,7 @@ def _atomic_write(path: Path, data: bytes) -> None:
 class RunStore:
     """A new-run-only checkpoint store; stage resume is intentionally not implemented yet."""
 
-    def __init__(self, output_root: Path, usage: Usage):
+    def __init__(self, output_root: Path, usage: Usage, scope="investigate"):
         now = datetime.now(UTC)
         run_id = uuid4().hex
         self.root = output_root.resolve() / run_id
@@ -33,6 +35,8 @@ class RunStore:
         self._lock = self.root / ".writer.lock"
         self._lock.touch(exist_ok=False)
         self.manifest = Manifest(
+            schema_version="0.1" if scope == "investigate" else "0.2",
+            requested_scope=scope,
             run_id=run_id,
             created_at=now,
             updated_at=now,
@@ -45,7 +49,7 @@ class RunStore:
         self.manifest.updated_at = datetime.now(UTC)
         _atomic_write(self.root / "manifest.json", self.manifest.model_dump_json(indent=2).encode())
 
-    def add(self, name: str, content: str | Record) -> None:
+    def add(self, name: str, content: str | bytes | Record) -> None:
         if (
             Path(name).name != name
             or any(char in name for char in "/\\:")
@@ -56,8 +60,12 @@ class RunStore:
         if any(artifact.path == name for artifact in self.manifest.artifacts):
             raise RepoPilotError("artifact_exists", "Committed artifacts cannot be overwritten.")
         data = (
-            content.model_dump_json(indent=2) if isinstance(content, Record) else content
-        ).encode()
+            content
+            if isinstance(content, bytes)
+            else (
+                content.model_dump_json(indent=2) if isinstance(content, Record) else content
+            ).encode()
+        )
         _atomic_write(self.root / name, data)
         self.manifest.artifacts.append(
             Artifact(
@@ -68,9 +76,13 @@ class RunStore:
         )
         self.checkpoint()
 
-    def finish(self, *, error: RepoPilotError | None = None) -> None:
+    def finish(self, *, error: RepoPilotError | None = None, outcome=None) -> None:
         self.manifest.execution_status = "failed" if error else "completed"
-        self.manifest.outcome = None if error else "investigated"
+        if error and error.code == "verification_interrupted":
+            self.manifest.execution_status = "interrupted"
+        self.manifest.outcome = (
+            outcome if outcome is not None else (None if error else "investigated")
+        )
         self.manifest.error_code = error.code if error else None
         self.manifest.error_message = str(error) if error else None
         self.checkpoint()
@@ -103,9 +115,39 @@ def read_status(root: Path) -> dict:
             continue
         if hashlib.sha256(path.read_bytes()).hexdigest() != artifact.sha256:
             problems.append("artifact digest mismatch")
+    graph_integrity = "not_assessed"
+    artifacts = {artifact.path: artifact.sha256 for artifact in manifest.artifacts}
+    if "graph.json" in artifacts and not problems:
+        try:
+            graph = EvidenceGraph.model_validate_json((root / "graph.json").read_bytes())
+            if graph.run_id != manifest.run_id or any(
+                artifacts.get(node.artifact_path) != node.artifact_digest for node in graph.nodes
+            ):
+                raise ValueError("Graph references another Run or artifact revision")
+            for node in graph.nodes:
+                if node.kind == "command":
+                    command = CommandEvidence.model_validate_json(
+                        (root / node.artifact_path).read_bytes()
+                    )
+                    if command.run_id != manifest.run_id or any(
+                        path not in artifacts or artifacts[path] != digest
+                        for path, digest in (
+                            (command.stdout_artifact, command.stdout_sha256),
+                            (command.stderr_artifact, command.stderr_sha256),
+                        )
+                    ):
+                        raise ValueError("Command does not bind its Run and log artifacts")
+            graph_integrity = "valid"
+        except (OSError, ValueError):
+            graph_integrity = "unverifiable"
+            problems.append("invalid evidence graph or artifact binding")
+    elif manifest.requested_scope != "investigate" and manifest.execution_status == "completed":
+        graph_integrity = "unverifiable"
+        problems.append("completed verification has no valid evidence graph")
     return {
         **manifest.model_dump(mode="json"),
         "artifact_integrity": "unverifiable" if problems else "valid",
         "integrity_problems": problems,
+        "graph_integrity": graph_integrity,
         "scope_note": "Integrity is relative to this manifest; no repair or live-worktree claim.",
     }

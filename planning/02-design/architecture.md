@@ -2,6 +2,8 @@
 
 状态：设计草案 v0.2。接口须通过 M1 适配实验验证后实现；项目按质量里程碑推进，不设固定期限。
 
+实现更新（2026-10-30）：M1 调查及 M2 固定 ref/冻结 unittest 的 DockerRunner、命令证据、Oracle/Gate 和最小 DAG 已落地，见 [M2 记录](../04-progress/m2-controlled-verification.md)。本文完整链路中的生产 Coding Engine、自动修复、恢复、失效与独立审查仍是后续能力。
+
 ## 分层与职责
 
 ```mermaid

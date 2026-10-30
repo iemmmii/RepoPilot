@@ -6,7 +6,13 @@ import sys
 
 
 def inspect_environment() -> dict:
-    docker = shutil.which("docker")
+    from repopilot.domain.errors import RepoPilotError
+    from repopilot.sandbox.docker import find_docker
+
+    try:
+        docker = find_docker()
+    except RepoPilotError:
+        docker = None
     podman = shutil.which("podman")
     wsl = shutil.which("wsl")
     wsl_state = "not_available"
@@ -29,10 +35,11 @@ def inspect_environment() -> dict:
         "deepseek_key_configured": bool(os.environ.get("DEEPSEEK_API_KEY", "").strip()),
         "engine_version": engine,
         "read_only_investigation_available": bool(shutil.which("git")),
-        "target_execution_enabled": False,
+        "explicit_verification_available": True,
+        "automatic_target_execution": False,
         "notes": [
             "Provider credentials are not printed or tested by doctor.",
             "Container command presence does not prove a working sandbox.",
-            "This version never executes target repository commands.",
+            "Only reproduce/verify-candidate explicitly execute a frozen suite after Docker preflight.",
         ],
     }

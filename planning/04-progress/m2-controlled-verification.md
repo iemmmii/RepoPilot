@@ -53,6 +53,7 @@ ItsDangerous #126 的负 age 要求在上游 [PR #133](https://github.com/pallet
 - 环境 PR #4 在本轮期间合并；M2 分支已基于 fd0c916 主干基线，不依赖未合并的环境 PR，不重写已共享提交。
 - 实现提交 [`342be44`](https://github.com/iemmmii/RepoPilot/commit/342be44649993e799e255e719bececa8ce55f463) 已推送，已创建 [PR #5](https://github.com/iemmmii/RepoPilot/pull/5)，目标 main，尚未自动合并。远程检查的当前状态以 [PR #5 checks](https://github.com/iemmmii/RepoPilot/pull/5/checks) 为准；四组常规测试和独立 Linux 容器作业均已配置。
 - 实现提交 342be44 的 [CI 运行 40987237364](https://github.com/iemmmii/RepoPilot/actions/runs/40987237364) 实际完成且 5 个作业全部 success：Windows/Linux × Python 3.11/3.13 四组常规检查，以及独立 Linux 真实容器检查。本条是该实现提交的快照；后续纯进度提交的检查另以 PR 当前 head 为准。
+- 随后核对 PR #5 已被外部操作合并为 main 的 8ecb2ec；本助手未执行合并。合并后补推的纯文档记录经 cherry-pick 移接到最新 main 的 codex/m2-delivery-record 分支，以 [PR #6](https://github.com/iemmmii/RepoPilot/pull/6) 补充，避免旧分支未集成内容遗失。产品和测试未因此变化。
 
 ## 使用与剩余限制
 

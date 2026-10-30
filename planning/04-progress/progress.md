@@ -5,10 +5,10 @@
 ## 当前状态
 
 阶段：M2 首个受控复现/候选对照已交付；产品 DockerRunner、冻结测试、Oracle/Gate 与最小证据图可运行。阶段恢复和 3 个调优案例尚未完成。
-版本基线：规划、M1 与环境 PR #4 已集成到 main，当前基线为 [`fd0c916`](https://github.com/iemmmii/RepoPilot/commit/fd0c916d901c7676cbed8c66658c75c973213cd7)。
+版本基线：M2 实现 PR #5 已集成到 main，当前基线为 [`8ecb2ec`](https://github.com/iemmmii/RepoPilot/commit/8ecb2ec47e6b48927920c44f9f87d26a4c6fe5aa)。
 实际实现：DeepSeek/离线调查，以及显式 reproduce/verify-candidate；代码按 10 个功能子包组织，调查不自动执行目标代码。
 下一项：P2-05 阶段级检查点、恢复与初始评估；本轮交付证据见 [M2 记录](m2-controlled-verification.md)。
-当前交付分支为 codex/m2-controlled-verification，基于环境 PR #4 合并后的 main；已创建 [PR #5](https://github.com/iemmmii/RepoPilot/pull/5)，不自动合并主干。远程运行状态见 [checks](https://github.com/iemmmii/RepoPilot/pull/5/checks)。
+实现分支 codex/m2-controlled-verification 的 [PR #5](https://github.com/iemmmii/RepoPilot/pull/5) 已由外部操作合并。合并后产生的纯进度补记移接到 codex/m2-delivery-record，以 [PR #6](https://github.com/iemmmii/RepoPilot/pull/6) 单独集成；本助手未执行合并。
 
 ## 阶段看板
 

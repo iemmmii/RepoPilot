@@ -8,7 +8,7 @@
 版本基线：PR #5/#6 已集成到 main，当前基线为 [`fc5f903`](https://github.com/iemmmii/RepoPilot/commit/fc5f903)，本助手未执行合并。
 实际实现：DeepSeek/离线调查，显式 reproduce/verify-candidate/resume/evaluate；代码按 11 个功能子包组织，调查不自动执行目标代码。
 下一项：P3-01 的候选/工作树管理与 P3-02 的受限 Coding Engine；本轮证据见 [M2 恢复记录](m2-stage-recovery.md)。
-交付分支 codex/m2-stage-recovery，使用 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7) 在最终核验前保持草稿，检查后转可审阅；不自动合并。
+交付分支 codex/m2-stage-recovery 的 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7) 核对时仍为草稿、未合并。实现与结果记录提交的 5 项 CI 均已通过；转审阅遇到连接器写权限不足、本机 API TLS EOF 和备用浏览器超时，状态更新尚未完成，不自动合并。
 
 ## 阶段看板
 

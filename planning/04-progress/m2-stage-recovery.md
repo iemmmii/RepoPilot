@@ -25,6 +25,7 @@
 - Ruff 检查与格式检查通过（55 个 Python 文件）；uv.lock 离线核对、wheel/sdist 构建通过。42/62 个分发条目包含新恢复/评估模块，不含 .env、.repopilot、虚拟环境或安装包。23 份 Markdown 的 UTF-8 与 89 个相对链接通过。
 - 本轮结束前按 repopilot-command- 前缀核对，无残留命令容器。版本控制使用 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7)，最终检查结果以当前 head 的 checks 为准；草稿阶段不自动合并。
 - 实现提交 ad3203b 的 [CI 运行 41013142962](https://github.com/iemmmii/RepoPilot/actions/runs/41013142962) 已实际 completed/success，覆盖 Windows/Linux × Python 3.11/3.13 与独立 Linux 容器作业。GitHub 传输曾短暂失败，恢复后已核对，不以本地结果代替远程检查。
+- 纯结果记录提交 57ce3e8 的 [CI 运行 41013952251](https://github.com/iemmmii/RepoPilot/actions/runs/41013952251) 也已核对 5 个作业全部 success。随后尝试把 PR 转为可审阅：连接器返回 Resource not accessible by integration，已有认证的 GraphQL 请求持续 TLS EOF，浏览器备用连接也超时。因此核对时 PR #7 仍为 draft/open、未合并；这是远程元数据步骤未完成，不是测试失败，未降低 TLS 或其他安全限制。
 
 ## 三个受控调优案例
 

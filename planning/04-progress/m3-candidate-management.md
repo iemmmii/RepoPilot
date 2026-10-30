@@ -41,6 +41,8 @@ ruff check / format 通过（59 个 Python 文件），uv.lock 离线检查通�
 
 规划提交 32a4acf 已先推送。交付分支 `codex/m3-candidate-management`，[PR #8](https://github.com/iemmmii/RepoPilot/pull/8) 当前以 PR #7 分支为基础，未自动合并；#7 已在本轮成功转为可审阅状态。
 
+最终实现与兼容修正提交 [5ac4b09](https://github.com/iemmmii/RepoPilot/commit/5ac4b0956bcabe37faf08347ae988a7a75563131) 的 [CI 41024291177](https://github.com/iemmmii/RepoPilot/actions/runs/41024291177) 已实际完成：Windows/Linux × Python 3.11/3.13 四组检查及真实容器作业全部 success。后续仅进度文档提交的当前检查以 [PR #8 checks](https://github.com/iemmmii/RepoPilot/pull/8/checks) 为准，不把前一提交结果冒充新 head 的结果。
+
 本单元完成候选管理的窄权限版本。P3-02 的生产 Coding Engine、真实模型生成修复、完整动态失效、所有故障与机制对照仍未完成。`status <run>` 仍是历史完整性检查；check-export 不声称检查 Oracle、环境或评估策略变化。结果最多 candidate_verified，不产生 resolved_verified。
 
 下一步接 mini-swe-agent 2.4.6 的 Model/Environment 接口、持久模型预算与有限修复尝试，再完成至少两个模型修复和诚实失败案例。

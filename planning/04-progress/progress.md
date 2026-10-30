@@ -224,6 +224,7 @@
 - 正式手写 C01 错误/正确补丁对照：Run b3cfc66af33e4f0eaaf1afd71e245e84 为 reproduced，4393c0ae790d4eaebeed71291f248756 为 candidate_verified；各 2 条容器命令，Artifact/graph 均 valid，模型请求 0。
 - PR #7 的 Ready 转换本轮已实际完成；当前 PR #8 以其为基础，不自动合并。最终本地和远程检查在交付记录追加。
 - D-023 与具体发现见 [M3 候选记录](m3-candidate-management.md)。尚无生产 Coding Engine 或模型生成修复，不将手写样例记为 P3-05 完成。
+- 交付代码 5ac4b09 的 CI 41024291177 已 completed/success：四组 Windows/Linux 与 Python 3.11/3.13 检查、真实容器作业全部通过；后续纯记录提交的最新检查以 PR checks 为准。修正前后的验证分别记录，没有覆盖失败与中断产物。
 
 ## 后续条目模板
 

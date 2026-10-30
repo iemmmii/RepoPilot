@@ -37,7 +37,7 @@
 | P2-02 | 已完成 | 控制面命令/日志摘要、实际退出、超时/中断/输出预算与清理记录；真实容器测试通过 |
 | P2-03 | 已完成 | 外部 stdlib unittest 冻结、完整 ID 选择、suite_hash；目标失败与导入错误/跳过明确区分 |
 | P2-04 | 已完成（首版） | reproduced/not_reproduced/environment_blocked/needs_human 分类；同输入矛盾标 unstable，生成报告 |
-| P2-05 | 未开始 | — |
+| P2-05 | 进行中 | 按阶段恢复计划实现原子阶段提交、内核写锁、预算和三项调优案例 |
 | P2-06 | 已完成（最小契约） | Oracle 绑定来源/套件/ID/审定依据；样例映射上游维护者已接受协议；不认证 Worker 的 accepted 声明 |
 | P2-07 | 已完成（候选范围） | 指纹/退出/全部选择/Oracle/稳定性与缺证据拒判；最多 candidate_verified，不产生完整修复成功 |
 | P2-08 | 已完成（最小图） | 拓扑序类型节点与必需依赖，Artifact/日志与 Run 绑定；动态失效和恢复留在 P3 |

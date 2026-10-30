@@ -47,7 +47,20 @@ class RunStore:
 
     def checkpoint(self) -> None:
         self.manifest.updated_at = datetime.now(UTC)
-        _atomic_write(self.root / "manifest.json", self.manifest.model_dump_json(indent=2).encode())
+        recovery_fields = {
+            "stages",
+            "command_attempts",
+            "command_limit",
+            "reserved_seconds",
+            "wall_budget_seconds",
+            "graph_artifact",
+            "report_artifact",
+        }
+        excluded = recovery_fields if self.manifest.schema_version != "0.3" else set()
+        _atomic_write(
+            self.root / "manifest.json",
+            self.manifest.model_dump_json(indent=2, exclude=excluded).encode(),
+        )
 
     def add(self, name: str, content: str | bytes | Record) -> None:
         if (
@@ -117,9 +130,20 @@ def read_status(root: Path) -> dict:
             problems.append("artifact digest mismatch")
     graph_integrity = "not_assessed"
     artifacts = {artifact.path: artifact.sha256 for artifact in manifest.artifacts}
-    if "graph.json" in artifacts and not problems:
+    attempts = set()
+    for stage in manifest.stages:
+        key = (stage.name, stage.attempt)
+        if (
+            key in attempts
+            or any(path not in artifacts for path in stage.artifacts.values())
+            or (stage.status == "running" and stage.artifacts)
+        ):
+            problems.append("invalid stage checkpoint or artifact binding")
+        attempts.add(key)
+    graph_path = manifest.graph_artifact or "graph.json"
+    if graph_path in artifacts and not problems:
         try:
-            graph = EvidenceGraph.model_validate_json((root / "graph.json").read_bytes())
+            graph = EvidenceGraph.model_validate_json((root / graph_path).read_bytes())
             if graph.run_id != manifest.run_id or any(
                 artifacts.get(node.artifact_path) != node.artifact_digest for node in graph.nodes
             ):
@@ -149,5 +173,13 @@ def read_status(root: Path) -> dict:
         "artifact_integrity": "unverifiable" if problems else "valid",
         "integrity_problems": problems,
         "graph_integrity": graph_integrity,
+        "orphan_artifacts": sorted(
+            path.name
+            for path in root.iterdir()
+            if path.is_file()
+            and not path.name.startswith(".")
+            and path.name != "manifest.json"
+            and path.name not in artifacts
+        ),
         "scope_note": "Integrity is relative to this manifest; no repair or live-worktree claim.",
     }

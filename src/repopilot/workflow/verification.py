@@ -1,4 +1,6 @@
 import hashlib
+import json
+import math
 import shutil
 import tempfile
 from pathlib import Path
@@ -8,32 +10,37 @@ from pydantic import ValidationError
 from repopilot.domain.errors import RepoPilotError
 from repopilot.domain.evidence import EvidenceGraph, EvidenceNode
 from repopilot.domain.models import Issue, Usage
-from repopilot.domain.verification import Oracle, fingerprint
-from repopilot.reporting.verification import render_verification
-from repopilot.repository.materialize import (
-    directory_digest,
-    freeze_suite,
-    materialize_repository,
+from repopilot.domain.verification import (
+    CommandEvidence,
+    Oracle,
+    TestObservation,
+    VerificationAssessment,
+    VerificationRequest,
+    fingerprint,
 )
+from repopilot.reporting.verification import render_verification
+from repopilot.repository.materialize import directory_digest, freeze_suite, materialize_repository
 from repopilot.repository.snapshot import _origin_slug
 from repopilot.sandbox import harness
-from repopilot.sandbox.docker import DockerRunner
-from repopilot.storage.runs import RunStore, read_status
+from repopilot.sandbox.docker import DEFAULT_IMAGE, DockerRunner
+from repopilot.storage.runs import read_status
+from repopilot.storage.stages import VerificationStore
 from repopilot.verification.gate import assess
 from repopilot.verification.observations import observe
 
 
-def _graph(store: RunStore, candidate: bool) -> EvidenceGraph:
-    artifacts = {artifact.path: artifact.sha256 for artifact in store.manifest.artifacts}
+def _graph(store, candidate):
+    artifacts = {artifact.path: artifact.sha256 for artifact in store.available_artifacts}
     nodes = []
 
-    def add(node_id, kind, artifact_path, dependencies=()):
+    def add(identifier, kind, logical, dependencies=()):
+        actual = store.artifact_name(logical)
         nodes.append(
             EvidenceNode(
-                node_id=node_id,
+                node_id=identifier,
                 kind=kind,
-                artifact_path=artifact_path,
-                artifact_digest=artifacts[artifact_path],
+                artifact_path=actual,
+                artifact_digest=artifacts[actual],
                 dependencies=list(dependencies),
             )
         )
@@ -75,136 +82,250 @@ def verify(
     oracle_path: Path,
     output_root: Path,
     runner: DockerRunner,
+    max_commands=6,
+    _fault=None,
 ) -> Path:
-    scope = "verify_candidate" if candidate_ref is not None else "reproduce"
-    store = RunStore(output_root, Usage(provider="none", requests=0), scope=scope)
+    request = VerificationRequest(
+        issue=issue,
+        repository=str(repository.resolve()),
+        base_ref=base_ref,
+        candidate_ref=candidate_ref,
+        suite_path=str(suite_path.resolve()),
+        oracle_path=str(oracle_path.resolve()),
+        image=getattr(runner, "image", DEFAULT_IMAGE),
+        context=getattr(runner, "context", None),
+        policy=runner.policy,
+        max_commands=max_commands,
+    )
+    store = VerificationStore(
+        output_root,
+        Usage(provider="none", requests=0),
+        "verify_candidate" if candidate_ref is not None else "reproduce",
+    )
     try:
-        store.add("issue.json", issue)
-        if oracle_path.stat().st_size > 32_000:
+        store.manifest.command_limit = max_commands
+        store.add("request.json", request)
+        return _execute(store, request, runner, False, _fault)
+    finally:
+        store.release()
+
+
+def resume(root: Path, *, runner=None, _fault=None) -> Path:
+    store = VerificationStore(None, None, None, resume_root=root)
+    try:
+        request = VerificationRequest.model_validate_json(store.read("request.json"))
+        command_stages = sum(stage.name in {"base", "candidate"} for stage in store.manifest.stages)
+        if (
+            store.manifest.command_limit != request.max_commands
+            or store.manifest.command_attempts != command_stages
+            or not math.isclose(
+                store.manifest.reserved_seconds, command_stages * request.policy.timeout_seconds
+            )
+        ):
+            raise RepoPilotError(
+                "budget_checkpoint_invalid", "Saved budget and stage reservations disagree."
+            )
+        runner = runner or DockerRunner(
+            image=request.image, policy=request.policy, context=request.context
+        )
+        if runner.policy != request.policy:
+            raise RepoPilotError(
+                "resume_inputs_changed", "Runner policy differs from the saved request."
+            )
+        return _execute(store, request, runner, True, _fault)
+    finally:
+        store.release()
+
+
+def _execute(store, request, runner, resuming, fault):
+    resumed_started = False
+
+    def inject(point):
+        if fault:
+            fault(point)
+
+    try:
+        repository = Path(request.repository)
+        path = Path(request.oracle_path)
+        if path.stat().st_size > 32_000:
             raise RepoPilotError("invalid_oracle", "Oracle exceeds the input size limit.")
         try:
-            oracle = Oracle.model_validate_json(oracle_path.read_bytes())
+            oracle = Oracle.model_validate_json(path.read_bytes())
         except ValidationError as error:
-            raise RepoPilotError(
-                "invalid_oracle", "Oracle does not match the required schema."
-            ) from error
-        if oracle.issue_url != issue.url:
-            raise RepoPilotError("oracle_issue_mismatch", "Oracle belongs to a different Issue.")
+            raise RepoPilotError("invalid_oracle", "Oracle does not match the schema.") from error
+        if oracle.issue_url != request.issue.url:
+            raise RepoPilotError("oracle_issue_mismatch", "Oracle belongs to another Issue.")
         origin = _origin_slug(repository)
-        if origin and issue.repository and origin.casefold() != issue.repository.casefold():
+        if (
+            origin
+            and request.issue.repository
+            and origin.casefold() != request.issue.repository.casefold()
+        ):
             raise RepoPilotError(
                 "repository_mismatch", "Issue repository and local origin disagree."
             )
-        store.add("oracle.json", oracle)
-        store.add("policy.json", runner.policy)
-        # Only controller-generated files are created here. No target code runs on the host.
         with tempfile.TemporaryDirectory(prefix="execution-", dir=store.root) as temporary:
             work = Path(temporary)
             suite_root = work / "suite"
-            suite = freeze_suite(suite_path, suite_root)
+            suite = freeze_suite(Path(request.suite_path), suite_root)
             if suite.suite_hash != oracle.suite_hash:
                 raise RepoPilotError(
                     "suite_hash_mismatch", "Oracle does not bind these frozen test bytes."
                 )
-            store.add("suite.json", suite)
             runner_root = work / "runner"
             runner_root.mkdir()
             runner_root.chmod(0o755)
-            harness_path = runner_root / "harness.py"
-            shutil.copyfile(Path(harness.__file__), harness_path)
-            harness_path.chmod(0o644)
-            environment = runner.prepare(harness_path)
-            store.add("environment.json", environment)
+            adapter = runner_root / "harness.py"
+            shutil.copyfile(harness.__file__, adapter)
+            adapter.chmod(0o644)
+            environment = runner.prepare(adapter)
             snapshots = {}
-            results = {}
-            observations = {}
-            for name, ref in [("base", base_ref)] + (
-                [("candidate", candidate_ref)] if candidate_ref is not None else []
+            for name, ref in [("base", request.base_ref)] + (
+                [("candidate", request.candidate_ref)] if request.candidate_ref is not None else []
             ):
-                source_root = work / name
-                snapshot = materialize_repository(repository, ref, source_root)
-                snapshots[name] = snapshot
+                snapshots[name] = materialize_repository(repository, ref, work / name)
+            inputs = {
+                "issue": request.issue.model_dump(mode="json"),
+                "oracle": oracle.model_dump(),
+                "suite": suite.suite_hash,
+                "environment": environment.environment_digest,
+                "policy": runner.policy.model_dump(),
+                "sources": {name: snapshot.model_dump() for name, snapshot in snapshots.items()},
+            }
+            digest = fingerprint(inputs)
+            if resuming:
+                previous = [
+                    stage
+                    for stage in store.manifest.stages
+                    if stage.name == "inputs" and stage.status == "succeeded"
+                ]
+                if previous and previous[-1].input_fingerprint != digest:
+                    raise RepoPilotError(
+                        "resume_inputs_changed",
+                        "Current inputs differ; old evidence is historical and a new Run is required.",
+                    )
+                store.recover(runner)
+                resumed_started = True
+            if not store.reusable("inputs", digest):
+                store.begin("inputs", digest)
+                for name, value in (
+                    ("issue.json", request.issue),
+                    ("oracle.json", oracle),
+                    ("policy.json", runner.policy),
+                    ("suite.json", suite),
+                    ("environment.json", environment),
+                ):
+                    store.add(name, value)
+                store.add("inputs.json", json.dumps(inputs, sort_keys=True, indent=2))
+                store.commit_stage()
+            observations, commands = {}, {}
+            for name, snapshot in snapshots.items():
+                stage_digest = fingerprint(
+                    {"inputs": digest, "stage": name, "source": snapshot.source_digest}
+                )
+                if store.reusable(name, stage_digest):
+                    commands[name] = CommandEvidence.model_validate_json(
+                        store.read(name + "-command.json")
+                    )
+                    observations[name] = TestObservation.model_validate_json(
+                        store.read(name + "-observation.json")
+                    )
+                    continue
+                store.begin(name, stage_digest, command_seconds=runner.policy.timeout_seconds)
+                store.add(name + "-snapshot.json", snapshot)
                 if name == "base":
                     store.manifest.base_commit = snapshot.commit
-                store.add(name + "-snapshot.json", snapshot)
+                source = work / name
                 before_suite = directory_digest(suite_root)
-                if directory_digest(source_root) != snapshot.source_digest:
-                    raise RepoPilotError(
-                        "snapshot_changed", "Source changed before command execution."
-                    )
+                if directory_digest(source) != snapshot.source_digest:
+                    raise RepoPilotError("snapshot_changed", "Source changed before execution.")
                 result = runner.run(
                     run_id=store.manifest.run_id,
                     source_digest=snapshot.source_digest,
                     suite_hash=suite.suite_hash,
                     environment=environment,
-                    mounts={
-                        "/workspace": source_root,
-                        "/suite": suite_root,
-                        "/runner": runner_root,
-                    },
+                    mounts={"/workspace": source, "/suite": suite_root, "/runner": runner_root},
                     argv=["/usr/local/bin/python", "-I", "-B", "/runner/harness.py"],
+                    container_registered=store.register_container,
                 )
+                inject(name + ":after_command")
                 store.manifest.tests_executed |= result.evidence.exit_code is not None
-                result.evidence.stdout_artifact = name + "-stdout.log"
-                result.evidence.stderr_artifact = name + "-stderr.log"
-                result.evidence.stdout_sha256 = hashlib.sha256(result.stdout).hexdigest()
-                result.evidence.stderr_sha256 = hashlib.sha256(result.stderr).hexdigest()
-                store.add(name + "-stdout.log", result.stdout)
-                store.add(name + "-stderr.log", result.stderr)
+                for stream in ("stdout", "stderr"):
+                    raw = getattr(result, stream)
+                    logical = name + "-" + stream + ".log"
+                    setattr(result.evidence, stream + "_artifact", store.target_name(logical))
+                    setattr(result.evidence, stream + "_sha256", hashlib.sha256(raw).hexdigest())
+                    store.add(logical, raw)
                 store.add(name + "-command.json", result.evidence)
                 observation = observe(result)
                 if (
-                    directory_digest(source_root) != snapshot.source_digest
+                    directory_digest(source) != snapshot.source_digest
                     or directory_digest(suite_root) != before_suite
-                    or fingerprint(
-                        {
-                            path: (suite_root / path).read_bytes().decode("utf-8")
-                            for path in suite.files
-                        }
-                    )
-                    != suite.suite_hash
                 ):
                     observation.protocol_valid = False
-                    observation.problems.append("Execution input bytes changed during the command.")
+                    observation.problems.append("Execution inputs changed during the command.")
                 store.add(name + "-observation.json", observation)
-                results[name] = result
-                observations[name] = observation
-                store.checkpoint()
+                inject(name + ":before_commit")
+                store.commit_stage(
+                    succeeded=result.evidence.termination == "exited"
+                    and result.evidence.cleanup_succeeded
+                )
+                inject(name + ":after_commit")
+                commands[name], observations[name] = result.evidence, observation
                 if result.evidence.termination == "interrupted":
                     raise RepoPilotError(
-                        "verification_interrupted",
-                        "Verification was interrupted; committed command evidence was retained.",
+                        "verification_interrupted", "Command interrupted; evidence retained."
                     )
             if read_status(store.root)["artifact_integrity"] != "valid":
                 raise RepoPilotError(
-                    "evidence_corrupted", "Committed execution artifacts failed integrity checks."
+                    "evidence_corrupted", "Committed artifacts failed integrity checks."
                 )
-            assessment = assess(
-                oracle=oracle,
-                base=observations["base"],
-                base_command=results["base"].evidence,
-                candidate=observations.get("candidate"),
-                candidate_command=results["candidate"].evidence if "candidate" in results else None,
-                expected_base_digest=snapshots["base"].source_digest,
-                expected_candidate_digest=snapshots["candidate"].source_digest
-                if "candidate" in snapshots
-                else None,
-                suite_hash=suite.suite_hash,
-                environment_digest=environment.environment_digest,
-                requirement_digest=next(
-                    artifact.sha256
-                    for artifact in store.manifest.artifacts
-                    if artifact.path == "issue.json"
-                ),
+            assessment_digest = fingerprint(
+                {
+                    "inputs": digest,
+                    "commands": {
+                        name: cmd.model_dump(mode="json") for name, cmd in commands.items()
+                    },
+                }
             )
-            store.add("assessment.json", assessment)
-            store.add("graph.json", _graph(store, "candidate" in snapshots))
-            store.add(
-                "verification.md", render_verification(issue, snapshots, observations, assessment)
-            )
+            if store.reusable("assess", assessment_digest):
+                assessment = VerificationAssessment.model_validate_json(
+                    store.read("assessment.json")
+                )
+            else:
+                store.begin("assess", assessment_digest)
+                assessment = assess(
+                    oracle=oracle,
+                    base=observations["base"],
+                    base_command=commands["base"],
+                    candidate=observations.get("candidate"),
+                    candidate_command=commands.get("candidate"),
+                    expected_base_digest=snapshots["base"].source_digest,
+                    expected_candidate_digest=snapshots["candidate"].source_digest
+                    if "candidate" in snapshots
+                    else None,
+                    suite_hash=suite.suite_hash,
+                    environment_digest=environment.environment_digest,
+                    requirement_digest=next(
+                        a.sha256
+                        for a in store.available_artifacts
+                        if a.path == store.artifact_name("issue.json")
+                    ),
+                )
+                store.add("assessment.json", assessment)
+                store.add("graph.json", _graph(store, "candidate" in snapshots))
+                store.add(
+                    "verification.md",
+                    render_verification(request.issue, snapshots, observations, assessment),
+                )
+                inject("assess:before_commit")
+                store.commit_stage()
+                inject("assess:after_commit")
             store.finish(outcome=assessment.outcome)
         return store.root
     except RepoPilotError as error:
+        if resuming and not resumed_started:
+            raise
         blocked = error.code.startswith("docker_") or error.code in {
             "image_digest_mismatch",
             "invalid_docker_metadata",
@@ -216,7 +337,7 @@ def verify(
         raise RepoPilotError(error.code, f"{error} Run: {store.root}") from error
     except KeyboardInterrupt as error:
         safe = RepoPilotError(
-            "verification_interrupted", "Verification was interrupted before a complete assessment."
+            "verification_interrupted", "Verification interrupted before a complete assessment."
         )
         store.finish(error=safe)
         raise RepoPilotError(safe.code, f"{safe} Run: {store.root}") from error

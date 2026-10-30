@@ -17,6 +17,14 @@ def test_mutable_tags_cannot_execute():
         runner(image="python:latest")
 
 
+def test_policy_fingerprint_survives_json_roundtrip():
+    from repopilot.domain.verification import fingerprint
+
+    original = SandboxPolicy()
+    restored = SandboxPolicy.model_validate_json(original.model_dump_json())
+    assert fingerprint(original.model_dump()) == fingerprint(restored.model_dump())
+
+
 def test_container_arguments_enforce_policy_and_only_three_mounts(tmp_path):
     mounts = {}
     for name in ("workspace", "suite", "runner"):

@@ -4,6 +4,8 @@
 
 实现更新（2026-10-30）：首版命令、Oracle、观察、Gate 与图契约已在 domain/verification.py、domain/evidence.py 落地，见 [M2 交付记录](../04-progress/m2-controlled-verification.md)。当前验证 Run 使用 0.2 manifest 和带 base/candidate 前缀的平铺 Artifact；下述阶段/attempt 目录、恢复和完整修复 Gate 仍为后续设计，不能据此推断已实现。
 
+后续实现更新：新验证 Run 已采用 0.3 manifest 和原子阶段提交，文件仍在 Run 根目录以 attempt 前缀区分；不是下方草案目录树的逐字实现。阶段恢复已验收，完整修复 Gate、动态失效和模型修复仍在后续。见 [恢复记录](../04-progress/m2-stage-recovery.md)。
+
 ## 一次运行的产物布局
 
 未来运行数据使用 `.repopilot/`，与项目管理目录 `planning/` 分离：

@@ -3,9 +3,9 @@ import json
 from datetime import datetime
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from repopilot.domain.models import Record
+from repopilot.domain.models import Issue, Record
 
 
 def fingerprint(value: object) -> str:
@@ -55,6 +55,7 @@ class Oracle(Record):
 
 
 class SandboxPolicy(Record):
+    model_config = ConfigDict(extra="forbid", validate_default=True, frozen=True)
     version: Literal["docker-readonly-v1"] = "docker-readonly-v1"
     cpus: int = Field(default=1, ge=1, le=4)
     memory_bytes: int = Field(default=268435456, ge=67108864, le=2147483648)
@@ -75,6 +76,19 @@ class ExecutionEnvironment(Record):
     harness_digest: str
     runner_digest: str
     environment_digest: str
+
+
+class VerificationRequest(Record):
+    issue: Issue
+    repository: str
+    base_ref: str
+    candidate_ref: str | None
+    suite_path: str
+    oracle_path: str
+    image: str
+    context: str | None
+    policy: SandboxPolicy
+    max_commands: int = Field(default=6, ge=1, le=20)
 
 
 class CommandEvidence(Record):

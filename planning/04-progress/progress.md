@@ -8,7 +8,7 @@
 版本基线：规划、M1 与环境 PR #4 已集成到 main，当前基线为 [`fd0c916`](https://github.com/iemmmii/RepoPilot/commit/fd0c916d901c7676cbed8c66658c75c973213cd7)。
 实际实现：DeepSeek/离线调查，以及显式 reproduce/verify-candidate；代码按 10 个功能子包组织，调查不自动执行目标代码。
 下一项：P2-05 阶段级检查点、恢复与初始评估；本轮交付证据见 [M2 记录](m2-controlled-verification.md)。
-当前工作分支为 codex/m2-controlled-verification，基于环境 PR #4 合并后的 main；不自动合并主干。
+当前交付分支为 codex/m2-controlled-verification，基于环境 PR #4 合并后的 main；已创建 [PR #5](https://github.com/iemmmii/RepoPilot/pull/5)，不自动合并主干。远程运行状态见 [checks](https://github.com/iemmmii/RepoPilot/pull/5/checks)。
 
 ## 阶段看板
 
@@ -204,6 +204,7 @@
 - 正式 Run 05140b6428d949c394b367d1b8266c88：上游修复父提交 base 1 failed / 5 passed，候选 6 passed，candidate_verified；18 个 Artifact 与图完整性 valid。
 - 原调查版本 1.1.0 的 Run 9d1eabef9bca459dbb077b23f9246ad3：1 failed / 5 passed，reproduced；13 个 Artifact 与图完整性 valid。
 - 105 项默认离线测试通过，真实容器另行 8 项通过；无目标宿主执行、无新增模型请求、无命令容器残留。最终仓库检查及远程结果在交付记录追加。
+- 实现提交 342be44 已创建 PR #5；该提交 5 个远程 CI 作业均 success，具体不可变运行链接见交付记录。后续纯进度提交的最新检查以 PR checks 为准。
 - 新增 D-021；独立依据、首个真实失败及修正、命令与限制见 [M2 交付记录](m2-controlled-verification.md)。P2-05 尚未开始，不将新 Run 的原子 manifest 当作阶段恢复。
 
 ## 后续条目模板

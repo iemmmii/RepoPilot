@@ -239,12 +239,14 @@ def test_release_only_managed_worktrees_preserves_repository_and_audit(repositor
     assert caught.value.code == "candidate_retired"
 
 
-def test_symlink_or_junction_in_candidate_refuses_cleanup(repository, tmp_path):
+@pytest.mark.parametrize("with_file", [False, True])
+def test_symlink_or_junction_in_candidate_refuses_cleanup(repository, tmp_path, with_file):
     root = create_candidate(repository, "HEAD", tmp_path / "candidates")
     outside = tmp_path / "outside"
     outside.mkdir()
     sentinel = outside / "important.txt"
-    sentinel.write_text("preserve", encoding="utf-8")
+    if with_file:
+        sentinel.write_text("preserve", encoding="utf-8")
     link = workspace(root) / "foreign"
     if sys.platform == "win32":
         import _winapi
@@ -259,7 +261,8 @@ def test_symlink_or_junction_in_candidate_refuses_cleanup(repository, tmp_path):
     with pytest.raises(RepoPilotError) as caught:
         release_candidate(root)
     assert caught.value.code == "candidate_changed"
-    assert sentinel.read_text(encoding="utf-8") == "preserve"
+    if with_file:
+        assert sentinel.read_text(encoding="utf-8") == "preserve"
 
 
 def test_case_colliding_directory_names_rejected_before_worktree(repository, tmp_path):

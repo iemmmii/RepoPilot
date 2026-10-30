@@ -6,7 +6,7 @@
 
 - `domain/patches.py`：严格 JSON 提案、版本清单与导出契约；单批最多 8 个文件、256KB 内容，单文件 64KB。
 - `repository/candidates.py`：候选创建、应用、状态、导出、导出适用性与 release；独立 worktree/原始 blob/临时 index，不 checkout 或执行目标代码。
-- 每个候选保留初始 base 与最多十次尝试；新版本以原子 candidate.json 发布，提交前崩溃形成 orphan，不复用其数据、不退还目录预算。累计导出补丁最多 1MB。
+- 每个候选保留初始 base 与最多十个发布尝试目录；新版本以原子 candidate.json 发布，提交前崩溃形成 orphan，不复用其数据、不退还目录预算。提案校验失败不占目录，模型调用预算仍由后续 Coding Engine 实施。累计导出补丁最多 1MB。
 - 禁止已有测试、配置、路径穿越、Windows 保留路径、大小写目录碰撞、链接/junction、陈旧原文与语法错误。批次拒绝不修改已发布版本；中间版本审计损坏也拒绝后续写入。
 - 导出 JSON 与 Diff 绑定固定版本；check-export 返回 current/superseded/retired/unverifiable。候选生成和导出始终 unverified，不自动获得测试成功。
 - release 先发布退休状态，核对候选内容、链接、绝对路径和 Git worktree 注册后，仅移除匹配目录；保留审计文件与锁，不全局 prune。中断可继续退休流程，未知 orphan 和被改动的目录留待人工处理。
@@ -33,6 +33,9 @@ ruff check / format 通过（59 个 Python 文件），uv.lock 离线检查通�
 - 正式脚本最初错误期待失败候选返回 needs_human，因而脚本断言退出 1；实际 Gate 按既有契约返回 reproduced，并明确候选断言未全部通过。核对 Gate 后单独校验原始结果，全部六项协议检查通过；未重跑或改写 Run 来满足错误预期。
 - 非隔离 build 命令最初因本地 venv 没有 setuptools 失败。项目已经声明构建依赖，改用 uv 的离线隔离构建，不为构建工具增加运行时依赖。
 - 默认沙箱阻止测试创建 Windows junction，因此该项明确 skip；同一测试在授权的普通本机进程中实际通过，未关闭任何全局保护。Linux CI 另覆盖 symlink。
+- 首个实现提交 [1b24e98](https://github.com/iemmmii/RepoPilot/commit/1b24e98d415750301a9850eaa9f0b4c62548ebb8) 的 [5 项 CI](https://github.com/iemmmii/RepoPilot/actions/runs/41023568096) 均 success。随后自查补充“空 junction”反例：原先针对非空目录的测试可能通过额外文件检查才拒绝，不能证明旧 Python 直接拒绝 junction。
+- [Python pathlib 文档](https://docs.python.org/3.13/library/pathlib.html#pathlib.Path.is_junction) 标明 is_junction 从 3.12 加入。改为使用 lstat 与 [reparse 属性位](https://docs.python.org/3.11/library/stat.html#stat.FILE_ATTRIBUTE_REPARSE_POINT)，在 3.11 同样拒绝链接；同步覆盖候选与原有套件/摘要根目录。新增不具备 is_junction 方法的属性反例，以及空/非空真实 junction；新提交的检查结果单独记录。
+- 该修正的 repository/sandbox/verification 定向回归 **99 passed / 2 skipped**；普通本机进程的空/非空 junction 反例 **2 passed**。ruff 检查/格式、重新隔离构建和 wheel/sdist 审查通过，两个包均包含新 reparse 检查且无私有路径。
 
 ## 版本与边界
 

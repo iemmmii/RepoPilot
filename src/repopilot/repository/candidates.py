@@ -26,6 +26,7 @@ from repopilot.repository.materialize import (
     MAX_FILES,
     MAX_TOTAL_BYTES,
     excluded,
+    is_link,
     read_repository,
     safe_relative,
     validate_paths,
@@ -55,7 +56,7 @@ def editable(path: str) -> bool:
 
 
 def _regular(path: Path) -> None:
-    if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+    if is_link(path):
         raise RepoPilotError("candidate_changed", "Candidate contains an unsupported link.")
 
 

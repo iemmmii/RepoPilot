@@ -62,7 +62,7 @@ uv run repopilot candidate status <candidate_dir>
 
 导出目录包含 `patch.diff` 和 `candidate.json`；后者的 `base_ref`/`candidate_ref` 可用于前述 `verify-candidate`。导出本身是 unverified，不执行测试。候选更新后，旧导出查询返回 superseded 和退出码 1；历史验证仍只适用于当时的固定提交。`status <run目录>` 目前仍仅检查历史 Run 完整性，不自动检查候选、Oracle 或环境是否变化。
 
-候选不改动用户原工作区或 index，不运行目标 hooks/过滤器。首版拒绝新增/删除文件、测试、配置、链接及未匹配原文摘要的修改；最多十次修改尝试，中断产生的 orphan 同样占用目录上限。未提交的版本不会自动晋升。
+候选不改动用户原工作区或 index，不运行目标 hooks/过滤器。首版拒绝新增/删除文件、测试、配置、链接及未匹配原文摘要的修改；最多十个修改版本目录，中断产生的 orphan 同样占用上限，校验阶段拒绝的提案不占目录。未提交的版本不会自动晋升。
 
 需要回收已导出候选时运行 `uv run repopilot candidate release <candidate_dir>`：退休会话并移除其已核验的受管工作树，保留提案、补丁和 manifest；遇到修改或链接时拒绝删除，orphan 需人工检查，不运行全局 prune。释放后禁止继续修改和导出，Git 对象未来可能被仓库 GC 清理。实际验收见 [M3 候选记录](planning/04-progress/m3-candidate-management.md)。
 

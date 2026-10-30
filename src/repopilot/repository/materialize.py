@@ -1,5 +1,6 @@
 import hashlib
 import re
+import stat
 from pathlib import Path, PurePosixPath
 
 from repopilot.domain.errors import RepoPilotError
@@ -20,6 +21,18 @@ PRIVATE_PARTS = {
     "id_rsa",
     "id_ed25519",
 }
+
+
+def is_link(path: Path) -> bool:
+    """Reject symlinks and Windows reparse points, including on Python 3.11."""
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    )
 
 
 def safe_relative(path: str) -> PurePosixPath:
@@ -97,9 +110,11 @@ def write_files(destination: Path, files: dict[str, bytes]) -> list[FileEntry]:
 
 
 def directory_digest(root: Path) -> str:
+    if is_link(root):
+        raise RepoPilotError("snapshot_changed", "A snapshot root must not be a link.")
     files = []
     for path in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
-        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+        if is_link(path):
             raise RepoPilotError("snapshot_changed", "A snapshot contains an unsupported link.")
         if path.is_file():
             data = path.read_bytes()
@@ -183,7 +198,7 @@ def materialize_repository(repository: Path, ref: str, destination: Path) -> Sou
 
 
 def freeze_suite(source: Path, destination: Path) -> FrozenSuite:
-    if not source.is_dir() or source.is_symlink():
+    if not source.is_dir() or is_link(source):
         raise RepoPilotError(
             "invalid_suite", "Suite must be a regular directory of Python test files."
         )
@@ -191,7 +206,7 @@ def freeze_suite(source: Path, destination: Path) -> FrozenSuite:
     total = 0
     for path in sorted(source.rglob("*")):
         relative = safe_relative(path.relative_to(source).as_posix())
-        if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+        if is_link(path):
             raise RepoPilotError("invalid_suite", "Suite must not contain symlinks or junctions.")
         if path.is_dir() or "__pycache__" in relative.parts:
             continue

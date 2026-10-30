@@ -1,21 +1,21 @@
 # RepoPilot 进度台账
 
-更新日期：2026-10-29（Asia/Shanghai）。
+更新日期：2026-10-30（Asia/Shanghai）。
 
 ## 当前状态
 
-阶段：M1 只读调查已交付，容器前置仍待准备。
-版本基线：[规划 PR #1](https://github.com/iemmmii/RepoPilot/pull/1) 尚未合并；实现已提交为 [PR #2](https://github.com/iemmmii/RepoPilot/pull/2)，独立分支 feat/m1-investigation-cli 暂以该规划分支为 base。
+阶段：M1 只读调查与环境小实验已完成；WSL2 + Docker Desktop 的受限容器探针通过，产品 SandboxRunner 尚未实现。
+版本基线：规划与 M1 已经集成到 main，当前基线为 [`2964c0d`](https://github.com/iemmmii/RepoPilot/commit/2964c0dcf5a632b937c6639dc8954bfef4976144)，不再依赖未合并的规划分支。
 实际实现：DeepSeek/离线调查 CLI、固定 Git 快照、静态检索、引用校验、Run/报告保存与完整性查询；代码按 8 个功能子包组织。
-下一项：完成 P1-01 的容器前置，再进入 P2-01 的隔离执行；不以宿主执行代替。
-当前没有正在后台运行的实现任务。
+下一项：环境准备按用户最新的条件授权完成；其余项目实现继续暂停。以后恢复时进入 P2-01，将已验证的运行时接入受控 Runner，不以宿主执行代替。
+当前没有正在后台运行的实现任务；Docker Desktop 的 Linux 引擎已启动，探针容器已经清理。
 
 ## 阶段看板
 
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
 | M0 需求与规划 | 已完成 | 读取最后 5 轮，形成文档基线并检查 |
-| M1 运行基础与只读调查 | 部分完成 | 只读闭环与真实模型已验证；容器准备受阻 |
+| M1 运行基础与只读调查 | 已完成 | 只读闭环、模型、底座合成接口及 Linux 受限容器小实验已核验；不代表生产引擎和 Runner 已集成 |
 | M2 独立依据与最小验证 | 未开始 | 用已知补丁验证 Oracle、Runner、Gate 和证据图 |
 | M3 可靠修复 | 未开始 | 修复循环、证据失效、故障注入和初始对照 |
 | M4 独立审查与评估 | 未开始 | 依赖候选补丁和有效测试证据 |
@@ -27,7 +27,7 @@
 
 | ID | 状态 | 实际产物 / 阻碍 |
 | --- | --- | --- |
-| P1-01 | 部分完成 | 底座 2.4.6 合成契约和 DeepSeek 已验证；Docker/Podman 不可用，WSL 未安装 |
+| P1-01 | 已完成（小实验） | 底座 2.4.6 合成接口、真实 DeepSeek、已知 Issue/base 与离线调查已核验；新增 WSL2 + Docker Linux 受限容器探针通过；尚未做生产底座与 Runner 集成 |
 | P1-02 | 已完成 | pyproject、uv.lock、隔离环境与 domain 契约；功能子包布局 |
 | P1-03 | 已完成 | GitHub Issue URL/本地 JSON、输入与 HTTP 错误分类；真实读取成功 |
 | P1-04 | 已完成 | 固定 Git commit、受限文本/AST、路径和行号校验；不导入目标代码 |
@@ -177,6 +177,25 @@
 ### 下一步
 
 先完成隔离环境前置，再实施 SandboxRunner 与冻结复现测试。阶段恢复、Oracle、证据 DAG、修复和审查均未实现；本次不能据调查成功宣称 Issue 已解决。
+
+## 2026-10-30：仅安装 WSL2 并核验
+
+- 用户在暂停项目后将范围明确为“只安装 WSL2”；没有恢复 Docker 安装或 M2 实施。
+- 核对先前启动的安装结果：Microsoft WSL 3.0.3 MSI 成功退出，VirtualMachinePlatform 为 Enabled，安装记录无需重启；本轮没有重复安装或触发重启。
+- 沙箱外实际运行 `wsl --version` 和 `wsl --status` 均成功，内核版本为 6.18.54.1-1，默认版本为 2。`wsl --list --verbose` 明确报告没有已安装的发行版。
+- 安装辅助脚本在 `scripts/environment/prepare_wsl.ps1`；版本核验及安装日志保留于忽略目录 `.repopilot/environment/`。先前编写但未执行的 Docker 验证草稿归档到该目录的 deferred/，不纳入本轮提交。
+- WSL2 运行时安装完成不代表 Linux 已启动或沙箱已实现，P1-01 保持部分完成；未执行目标仓库代码、模型调用或容器测试。
+- 新增 D-019，详细结果和下一步边界见 [WSL2 环境记录](wsl2-environment.md)。其余项目任务保持暂停。
+
+## 2026-10-30：按条件授权完成执行环境准备
+
+- 用户要求优先只用 WSL；不足时继续安装所需工具。发现 WSL 3.0.3 已内置 wslc，实际启动 Linux 内核成功；其当前 CLI 拒绝 `--read-only`、`--security-opt`、`--cap-drop`、`--pids-limit`，不能直接落实当前选择的执行策略。
+- 选择补装 Docker Desktop 4.97.0，采用 per-user、WSL2 后端；安装包哈希与 Docker Inc 签名均核验，退出码 0。数据磁盘实际位于 D 盘；未额外安装 Ubuntu，没有自动重启。
+- Docker Engine 29.9.2 的 Linux/amd64 服务已就绪。新增 `scripts/environment/verify_container.py`，使用官方 Python 镜像解析出的固定摘要，只挂载专用夹具。
+- 实测非 root、只读根与工作目录、断网、capabilities 清空、禁止提权、seccomp、CPU/内存/PID 的 cgroup 值均通过；宿主驱动器和 Docker socket 不可见，探针未收到模型/GitHub 密钥变量；探针容器已清理。
+- 修正当前父进程未刷新 PATH 导致 Docker 凭据辅助程序找不到的问题，仅补齐验证子进程 PATH。未改变全局代理设置，未将凭据传给容器。
+- P1-01 按其“小实验”验收记为完成，M1 完成；M2 产品 Runner、Oracle 和目标项目执行仍未开始。未调用模型或运行第三方项目代码。
+- D-020 与完整结果见[容器环境记录](container-environment.md)。本轮继续更新 [PR #4](https://github.com/iemmmii/RepoPilot/pull/4)，其余项目实现保持暂停。
 
 ## 后续条目模板
 

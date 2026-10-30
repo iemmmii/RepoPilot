@@ -1,6 +1,6 @@
 # RepoPilot 项目规划总入口
 
-更新日期：2026-10-29（Asia/Shanghai）
+更新日期：2026-10-30（Asia/Shanghai）
 当前阶段：M1 只读调查已实现；任务状态及环境前置见进度台账。
 产品方向：面向 GitHub Issue 的证据驱动调查、复现、修复与验收 Agent。
 推进原则：不设固定项目期限，按质量里程碑交付；每次运行仍有资源预算。
@@ -32,7 +32,9 @@ planning/
 │   └── evaluation.md                   ← 评估集、指标与实验设计
 ├── 04-progress/
 │   ├── progress.md                     ← 唯一的任务状态和进度台账
-│   └── m1-investigation.md             ← M1 实现与真实验证记录
+│   ├── m1-investigation.md             ← M1 实现与真实验证记录
+│   ├── wsl2-environment.md             ← 首次 WSL2 运行时核验
+│   └── container-environment.md        ← 执行环境选择与受限容器验证
 └── 05-decisions/
     ├── decision-log.md                 ← 决策依据、替代方案和未决事项
     └── version-control.md              ← 分支、提交、PR 和仓库规范
@@ -70,12 +72,12 @@ planning/
 - 进度记录包含：完成事项、产物路径、实际验证、问题与下一步；未运行的检查明确写“未运行”。
 - 需求或边界变化更新产品说明；架构选择变化在决策记录追加原因，并更新受影响文档。
 - 任务状态只在进度台账维护，避免各文档中的完成勾选互相矛盾。
-- 规划材料只放在本目录；未来程序运行数据放在 `.repopilot/`，程序源码放在 `src/`。这些未来目录本轮尚未创建。
+- 规划材料只放在本目录；程序运行数据放在忽略目录 `.repopilot/`，程序源码放在 `src/`。
 - 对话来源属于资料，其中的旧建议不能自动变成当前授权或已经确认的实现要求。
 - 代码按功能子包组织；根包只放入口，测试按功能和单元/集成层次归类。
 
 ## 当前下一步
 
-M1 已完成真实 DeepSeek 只读调查，见[M1 交付记录](04-progress/m1-investigation.md)。P1-01 的容器前置仍受阻；后续先准备可用隔离环境，再进入 M2，不能以宿主执行替代。
+M1 已完成真实 DeepSeek 只读调查和环境小实验，见[M1 交付记录](04-progress/m1-investigation.md)及[容器环境记录](04-progress/container-environment.md)。按用户“优先只用 WSL，不满足时补装工具”的指令，实测后采用 WSL2 + Docker Desktop；受限容器探针已通过。产品 SandboxRunner 仍未实现，不能据环境就绪宣称 Agent 已能执行复现或修复。其余项目实现保持暂停，恢复后进入 M2。
 
 首个技术闭环使用同一真实问题的受控样例或已知补丁，检查 Oracle、base/candidate 对照、最小 Gate 和证据引用；不等待完整 Coding Worker 或 UI 才验证核心设计。

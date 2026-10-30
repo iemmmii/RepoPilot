@@ -51,12 +51,17 @@ ItsDangerous #126 的负 age 要求在上游 [PR #133](https://github.com/pallet
 - Ruff 检查与格式检查通过（49 个 Python 文件），uv.lock 离线一致性核对通过；wheel/sdist 离线构建成功，38/57 个分发条目包含新 harness/Gate，未包含 .env、.repopilot、虚拟环境、安装包或原始对话。uv 的缓存位于源目录警告已通过实际包内容核查排除。
 - 根入口及 20 份规划文档的 UTF-8/相对链接检查通过，共 82 个相对链接；示例 Oracle 的 suite_hash 与实际文件字节匹配，git diff 检查通过。
 - 环境 PR #4 在本轮期间合并；M2 分支已基于 fd0c916 主干基线，不依赖未合并的环境 PR，不重写已共享提交。
+- 实现提交 [`342be44`](https://github.com/iemmmii/RepoPilot/commit/342be44649993e799e255e719bececa8ce55f463) 已推送，已创建 [PR #5](https://github.com/iemmmii/RepoPilot/pull/5)，目标 main，尚未自动合并。远程检查的当前状态以 [PR #5 checks](https://github.com/iemmmii/RepoPilot/pull/5/checks) 为准；四组常规测试和独立 Linux 容器作业均已配置。
+- 实现提交 342be44 的 [CI 运行 40987237364](https://github.com/iemmmii/RepoPilot/actions/runs/40987237364) 实际完成且 5 个作业全部 success：Windows/Linux × Python 3.11/3.13 四组常规检查，以及独立 Linux 真实容器检查。本条是该实现提交的快照；后续纯进度提交的检查另以 PR 当前 head 为准。
+- 随后核对 PR #5 已被外部操作合并为 main 的 8ecb2ec；本助手未执行合并。合并后补推的纯文档记录经 cherry-pick 移接到最新 main 的 codex/m2-delivery-record 分支，以 [PR #6](https://github.com/iemmmii/RepoPilot/pull/6) 补充，避免旧分支未集成内容遗失。产品和测试未因此变化。
 
 ## 使用与剩余限制
 
 根 README 提供已知样例命令。恢复以前的 Run、读取或复用 running/orphan 记录尚未实现；本轮仍为新 Run 单写入者存储，0.1 调查 manifest 保持可读，验证 manifest 为 0.2。不要把普通 Artifact 检查点说成 P2-05 的阶段恢复。
 
 套件目前支持外部 stdlib unittest，固定精确 ID，不自动运行仓库自带 pytest 配置、依赖安装或所有测试。缺依赖、错误或必要跳过均阻止验收。未执行完整项目回归、语义补丁审查或模型修复，resolved_verified 不可产生。
+
+首版不支持 subTest 聚合；出现这类观察时按协议/选择不一致拒判，不悄悄忽略子测试。
 
 同解释器内的主动恶意代码可能篡改测试工具，容器与 JSON 协议不能证明测试语义真实性；此版只支持受控公开 Python 样例，不覆盖公开多租户服务。单次对照不证明永不 flaky，稳定性通常为 not_checked；相同受控输入已出现矛盾时显式拒判为 unstable/needs_human。
 

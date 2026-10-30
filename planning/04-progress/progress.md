@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-阶段：M2 首个受控复现/候选对照已交付；产品 DockerRunner、冻结测试、Oracle/Gate 与最小证据图可运行。阶段恢复和 3 个调优案例尚未完成。
-版本基线：M2 实现 PR #5 已集成到 main，当前基线为 [`8ecb2ec`](https://github.com/iemmmii/RepoPilot/commit/8ecb2ec47e6b48927920c44f9f87d26a4c6fe5aa)。
-实际实现：DeepSeek/离线调查，以及显式 reproduce/verify-candidate；代码按 10 个功能子包组织，调查不自动执行目标代码。
-下一项：P2-05 阶段级检查点、恢复与初始评估；本轮交付证据见 [M2 记录](m2-controlled-verification.md)。
-实现分支 codex/m2-controlled-verification 的 [PR #5](https://github.com/iemmmii/RepoPilot/pull/5) 已由外部操作合并。合并后产生的纯进度补记移接到 codex/m2-delivery-record，以 [PR #6](https://github.com/iemmmii/RepoPilot/pull/6) 单独集成；本助手未执行合并。
+阶段：M2 的受控验证、阶段恢复与三个调优案例已验收；M3 模型修复与动态失效待实施。
+版本基线：PR #5/#6 已集成到 main，当前基线为 [`fc5f903`](https://github.com/iemmmii/RepoPilot/commit/fc5f903)，本助手未执行合并。
+实际实现：DeepSeek/离线调查，显式 reproduce/verify-candidate/resume/evaluate；代码按 11 个功能子包组织，调查不自动执行目标代码。
+下一项：P3-01 的候选/工作树管理与 P3-02 的受限 Coding Engine；本轮证据见 [M2 恢复记录](m2-stage-recovery.md)。
+交付分支 codex/m2-stage-recovery，使用 [PR #7](https://github.com/iemmmii/RepoPilot/pull/7) 在最终核验前保持草稿，检查后转可审阅；不自动合并。
 
 ## 阶段看板
 
@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | M0 需求与规划 | 已完成 | 读取最后 5 轮，形成文档基线并检查 |
 | M1 运行基础与只读调查 | 已完成 | 只读闭环、模型、底座合成接口及 Linux 受限容器小实验已核验；不代表生产引擎和 Runner 已集成 |
-| M2 独立依据与最小验证 | 部分完成 | 真实复现与已知候选对照通过，P2-05 恢复和初始评估未完成 |
+| M2 独立依据与最小验证 | 已完成 | 真实对照、原子阶段恢复、持久预算与 C01/C02/C03 调优清单通过 |
 | M3 可靠修复 | 未开始 | 修复循环、证据失效、故障注入和初始对照 |
 | M4 独立审查与评估 | 未开始 | 依赖候选补丁和有效测试证据 |
 | M5 真实有效性与成熟度 | 未开始 | 多仓库案例、可重跑评估和证据浏览 |
@@ -37,7 +37,7 @@
 | P2-02 | 已完成 | 控制面命令/日志摘要、实际退出、超时/中断/输出预算与清理记录；真实容器测试通过 |
 | P2-03 | 已完成 | 外部 stdlib unittest 冻结、完整 ID 选择、suite_hash；目标失败与导入错误/跳过明确区分 |
 | P2-04 | 已完成（首版） | reproduced/not_reproduced/environment_blocked/needs_human 分类；同输入矛盾标 unstable，生成报告 |
-| P2-05 | 进行中 | 按阶段恢复计划实现原子阶段提交、内核写锁、预算和三项调优案例 |
+| P2-05 | 已完成 | 0.3 阶段提交/内核写锁/resume/预算；真实 F01/F03/F04 与三案例评估通过 |
 | P2-06 | 已完成（最小契约） | Oracle 绑定来源/套件/ID/审定依据；样例映射上游维护者已接受协议；不认证 Worker 的 accepted 声明 |
 | P2-07 | 已完成（候选范围） | 指纹/退出/全部选择/Oracle/稳定性与缺证据拒判；最多 candidate_verified，不产生完整修复成功 |
 | P2-08 | 已完成（最小图） | 拓扑序类型节点与必需依赖，Artifact/日志与 Run 绑定；动态失效和恢复留在 P3 |
@@ -47,7 +47,7 @@
 | P3-04 | 未开始 | — |
 | P3-05 | 未开始 | — |
 | P3-06 | 未开始 | 失效传播与当前结论撤销 |
-| P3-07 | 未开始 | F01～F06 故障注入 |
+| P3-07 | 部分提前验证 | F01/F03/F04 已有真实 Docker 退出恢复；完整 F01～F06 矩阵继续在 M3 完成 |
 | P3-08 | 未开始 | 核心机制首轮对照 |
 | P4-01 | 未开始 | — |
 | P4-02 | 未开始 | — |
@@ -206,6 +206,15 @@
 - 105 项默认离线测试通过，真实容器另行 8 项通过；无目标宿主执行、无新增模型请求、无命令容器残留。最终仓库检查及远程结果在交付记录追加。
 - 实现提交 342be44 已创建 PR #5；该提交 5 个远程 CI 作业均 success，具体不可变运行链接见交付记录。后续纯进度提交的最新检查以 PR checks 为准。
 - 新增 D-021；独立依据、首个真实失败及修正、命令与限制见 [M2 交付记录](m2-controlled-verification.md)。P2-05 尚未开始，不将新 Run 的原子 manifest 当作阶段恢复。
+
+## 2026-10-30：完成 M2 阶段恢复与初始评估
+
+- 新增 0.3 验证 manifest、原子阶段提交、内核写锁、容器预登记、持久命令/时间预留预算，以及 resume/evaluate。
+- 本地默认套件 119 passed / 12 skipped；真实容器另行 12 passed，覆盖真实进程退出提交点与原有隔离限制。
+- 正式三案例评估 5485792e6ee74dfbb12139e8bf403f74：C01/C02 candidate_verified，C03 environment_blocked，3/3 符合受控协议；不记为真实模型修复率。
+- 已完成 C01 的真实 resume 保持命令 2 → 2、Artifact 不变。策略 int/float 往返导致的错误失效已修复并补回归；输入变化和损坏仍拒绝恢复。
+- 本轮仍为 0 次模型请求，无宿主目标代码执行。D-022 与实际边界见 [恢复交付记录](m2-stage-recovery.md)；M2 完成，M3 尚无模型修复能力。
+- 独立 PR #7 汇集规划、实现与验收，远程检查以该 PR 当前 head 为准。
 
 ## 后续条目模板
 

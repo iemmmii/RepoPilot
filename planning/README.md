@@ -1,7 +1,7 @@
 # RepoPilot 项目规划总入口
 
 更新日期：2026-10-30（Asia/Shanghai）
-当前阶段：M2 首个受控复现/已知候选闭环已实现；阶段恢复和评估尚未完成，见进度台账。
+当前阶段：M2 最小闭环、阶段恢复和三个受控调优案例已实现；进入 M3 前按进度台账核验交付。
 产品方向：面向 GitHub Issue 的证据驱动调查、复现、修复与验收 Agent。
 推进原则：不设固定项目期限，按质量里程碑交付；每次运行仍有资源预算。
 
@@ -30,13 +30,15 @@ planning/
 ├── 03-plan/
 │   ├── milestones.md                   ← 分阶段任务与交付条件
 │   ├── m2-first-verification.md         ← M2 首个受控闭环的实施边界
+│   ├── m2-stage-recovery.md             ← 阶段提交、预算与调优案例计划
 │   └── evaluation.md                   ← 评估集、指标与实验设计
 ├── 04-progress/
 │   ├── progress.md                     ← 唯一的任务状态和进度台账
 │   ├── m1-investigation.md             ← M1 实现与真实验证记录
 │   ├── wsl2-environment.md             ← 首次 WSL2 运行时核验
 │   ├── container-environment.md        ← 执行环境选择与受限容器验证
-│   └── m2-controlled-verification.md   ← 产品执行器与真实对照交付记录
+│   ├── m2-controlled-verification.md   ← 产品执行器与真实对照交付记录
+│   └── m2-stage-recovery.md             ← 阶段恢复与三案例实际验收
 └── 05-decisions/
     ├── decision-log.md                 ← 决策依据、替代方案和未决事项
     └── version-control.md              ← 分支、提交、PR 和仓库规范
@@ -82,4 +84,4 @@ planning/
 
 用户已恢复项目任务。M2 新增受限 DockerRunner、冻结 unittest、Oracle/Gate、命令/日志证据与最小 DAG，真实样例完成复现与已知候选对照，见 [M2 交付记录](04-progress/m2-controlled-verification.md)。只读调查仍可独立使用。
 
-下一步进入 P2-05 的阶段检查点、恢复与初始评估，再推进 P3 的模型修复、证据失效及故障注入。当前不支持自动修复、完整回归或 resolved_verified；不能把基础容器可用替代恢复与修复验收。
+P2-05 的阶段检查点、恢复与初始评估已经完成，见 [恢复与评估记录](04-progress/m2-stage-recovery.md)。下一步推进 P3 的模型修复、证据失效及完整故障矩阵；当前仍不支持自动修复、完整回归或 resolved_verified。

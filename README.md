@@ -4,7 +4,7 @@
 
 已实现 **Issue → 固定 Git 版本 → 带文件依据的调查报告**，支持 DeepSeek 和离线检索。M2 新增显式复现和已知候选对照：冻结外部 unittest，在受限 Linux 容器执行并保存命令证据、Oracle、输入摘要和证据 DAG。
 
-项目不设固定完成期限，按质量里程碑推进。当前可验证指定 Git ref，尚不生成修复、执行完整项目回归或恢复中断阶段；结果最多为 candidate_verified，不宣称 Issue 已完整解决。
+项目不设固定完成期限，按质量里程碑推进。当前可验证指定 Git ref，并恢复已提交的验证阶段；尚不生成修复或执行完整项目回归。结果最多为 candidate_verified，不宣称 Issue 已完整解决。
 
 ## 运行
 
@@ -37,6 +37,17 @@ uv run repopilot verify-candidate --issue-file examples/issues/itsdangerous-126.
 
 `--suite` 和 `--oracle` 是操作者审核过的控制面输入，不能直接采用 Worker 提供的 accepted 声明；套件字节必须匹配 Oracle 的 suite_hash，所有指定目标和回归 ID 必须实际执行。示例的独立依据来自已合并的上游 PR #133，而非本次测试结果。具体范围、真实结果及限制见 [M2 交付记录](planning/04-progress/m2-controlled-verification.md)。
 
+## 阶段恢复与受控评估
+
+新验证 Run 使用 0.3 manifest。`resume` 先重新核对冻结输入、当前 Git ref、Oracle、镜像和执行器版本；只有完整提交的阶段才复用，未提交尝试在新容器重跑。命令与保守时间预算不会因恢复归零。旧 0.1/0.2 Run 可查询，不能直接升级恢复。
+
+```powershell
+uv run repopilot resume <run目录>
+uv run repopilot evaluate
+```
+
+`evaluate` 运行三个版本化受控调优案例，保存到 `.repopilot/evaluations/`：错误状态码、空输入及依赖缺失。它使用已知候选，不调用模型；这些结果不代表真实 Agent 修复率。完整边界、进程退出实验和评估记录见 [M2 恢复与评估记录](planning/04-progress/m2-stage-recovery.md)。
+
 ## 代码布局
 
 ```text
@@ -49,6 +60,7 @@ src/repopilot/
 ├── sandbox/              # 受限 Docker 生命周期、预算与命令证据
 ├── verification/         # 冻结测试观察与确定性 Gate
 ├── workflow/             # 调查、复现与候选对照编排
+├── evaluation/           # 版本化受控调优案例与结果清单
 ├── storage/              # 产物、检查点与完整性
 ├── reporting/            # 报告渲染
 └── diagnostics/          # 环境诊断

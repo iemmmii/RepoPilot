@@ -15,6 +15,14 @@ def issue():
     )
 
 
+def test_original_investigation_wire_schema_is_preserved(tmp_path):
+    store = RunStore(tmp_path / "runs", Usage(provider="test"))
+    store.finish()
+    wire = json.loads((store.root / "manifest.json").read_bytes())
+    assert wire["schema_version"] == "0.1"
+    assert "stages" not in wire and "command_attempts" not in wire
+
+
 def test_offline_report_is_versioned_and_checks_artifacts(repository, tmp_path):
     run = investigate(issue(), repository, tmp_path / "runs", LexicalProvider())
     status = read_status(run)

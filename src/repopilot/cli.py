@@ -9,13 +9,14 @@ from repopilot import __version__
 from repopilot.diagnostics.environment import inspect_environment
 from repopilot.domain.errors import RepoPilotError
 from repopilot.domain.verification import SandboxPolicy
+from repopilot.evaluation.controlled import evaluate
 from repopilot.github.issues import fetch_issue, read_issue_file
 from repopilot.providers.deepseek import DeepSeekProvider
 from repopilot.providers.lexical import LexicalProvider
 from repopilot.sandbox.docker import DEFAULT_IMAGE, DockerRunner
 from repopilot.storage.runs import read_status
 from repopilot.workflow.investigation import investigate
-from repopilot.workflow.verification import verify
+from repopilot.workflow.verification import resume, verify
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,17 +51,57 @@ def main(argv: list[str] | None = None) -> int:
         verification.add_argument("--image", default=DEFAULT_IMAGE)
         verification.add_argument("--docker-context")
         verification.add_argument("--timeout", type=float, default=60)
+        verification.add_argument("--max-commands", type=int, choices=range(1, 21), default=6)
         verification.add_argument("--output-dir", type=Path, default=Path(".repopilot/runs"))
     status = commands.add_parser("status", help="Check saved artifacts against their manifest.")
     status.add_argument("run_dir", type=Path)
+    recovery = commands.add_parser(
+        "resume", help="Resume a 0.3 verification Run after input and integrity checks."
+    )
+    recovery.add_argument("run_dir", type=Path)
+    evaluation = commands.add_parser(
+        "evaluate", help="Run the three controlled tuning cases without model requests."
+    )
+    evaluation.add_argument("--output-dir", type=Path, default=Path(".repopilot/evaluations"))
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
             result = inspect_environment()
+        elif args.command == "evaluate":
+            root = evaluate(args.output_dir)
+            summary = json.loads((root / "summary.json").read_bytes())
+            print(
+                json.dumps(
+                    {
+                        "evaluation_dir": str(root),
+                        "matched": summary["matched"],
+                        "total": summary["total"],
+                        "case_kind": summary["case_kind"],
+                    },
+                    indent=2,
+                )
+            )
+            return 0 if summary["matched"] == summary["total"] else 1
         elif args.command == "status":
             result = read_status(args.run_dir)
             print(json.dumps(result, ensure_ascii=True, indent=2))
             return 0 if result["artifact_integrity"] == "valid" else 1
+        elif args.command == "resume":
+            root = resume(args.run_dir)
+            saved = read_status(root)
+            result = {
+                "run_dir": str(root),
+                "report": str(root / (saved["report_artifact"] or "verification.md")),
+                "outcome": saved["outcome"],
+                "command_attempts": saved["command_attempts"],
+            }
+            print(json.dumps(result, ensure_ascii=True, indent=2))
+            expected = (
+                "candidate_verified"
+                if saved["requested_scope"] == "verify_candidate"
+                else "reproduced"
+            )
+            return 0 if saved["outcome"] == expected else 1
         elif args.command in {"reproduce", "verify-candidate"}:
             from pydantic import ValidationError
 
@@ -82,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
                 oracle_path=args.oracle,
                 output_root=args.output_dir,
                 runner=DockerRunner(image=args.image, policy=policy, context=args.docker_context),
+                max_commands=args.max_commands,
             )
             saved = read_status(root)
             result = {

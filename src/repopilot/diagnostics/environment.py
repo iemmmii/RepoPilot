@@ -40,6 +40,6 @@ def inspect_environment() -> dict:
         "notes": [
             "Provider credentials are not printed or tested by doctor.",
             "Container command presence does not prove a working sandbox.",
-            "Only reproduce/verify-candidate explicitly execute a frozen suite after Docker preflight.",
+            "Only reproduce/verify-candidate/resume/evaluate explicitly execute suites after Docker preflight.",
         ],
     }

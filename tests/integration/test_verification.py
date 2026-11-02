@@ -141,7 +141,7 @@ def test_fixed_ref_verification_commits_bound_evidence_and_graph(verification_ca
     root = verify(**verification_case)
     status = read_status(root)
     assert status["outcome"] == "candidate_verified"
-    assert status["requested_scope"] == "verify_candidate" and status["schema_version"] == "0.2"
+    assert status["requested_scope"] == "verify_candidate" and status["schema_version"] == "0.3"
     assert status["artifact_integrity"] == status["graph_integrity"] == "valid"
     assert status["usage"]["requests"] == 0 and status["tests_executed"] is True
     assert not (verification_case["repository"] / "IMPORT_MUST_NOT_RUN").exists()

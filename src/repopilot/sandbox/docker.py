@@ -218,6 +218,26 @@ class DockerRunner:
             args.extend(["--mount", f"type=bind,source={resolved},target={target},readonly"])
         return [*args, "--entrypoint", argv[0], self.image, *argv[1:]]
 
+    def cleanup_registered(self, name: str):
+        if not re.fullmatch(r"repopilot-command-[a-f0-9]{32}", name):
+            raise RepoPilotError(
+                "container_ownership_mismatch", "Invalid registered container name."
+            )
+        try:
+            info = json.loads(self._control("inspect", name))[0]
+        except RepoPilotError:
+            remaining = self._control(
+                "ps", "--all", "--filter", "name=" + name, "--format", "{{.Names}}"
+            )
+            if not remaining.strip():
+                return
+            raise
+        if info.get("Config", {}).get("Labels", {}).get("repopilot.managed") != "true":
+            raise RepoPilotError(
+                "container_ownership_mismatch", "Registered container ownership is unverifiable."
+            )
+        self._control("rm", "--force", name)
+
     def run(
         self,
         *,
@@ -227,6 +247,7 @@ class DockerRunner:
         environment: ExecutionEnvironment,
         mounts: dict[str, Path],
         argv: list[str],
+        container_registered=None,
     ) -> CommandResult:
         name = "repopilot-command-" + uuid4().hex
         evidence_id = uuid4().hex
@@ -240,6 +261,8 @@ class DockerRunner:
         threads = []
         state = {}
         try:
+            if container_registered is not None:
+                container_registered(name)
             if environment.image_ref != self.image or environment.policy_digest != fingerprint(
                 self.policy.model_dump()
             ):
